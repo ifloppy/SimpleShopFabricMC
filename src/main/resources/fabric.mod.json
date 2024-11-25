@@ -1,0 +1,30 @@
+{
+	"schemaVersion": 1,
+	"id": "simpleshop",
+	"version": "${version}",
+	"name": "simpleshop",
+	"description": "A simple GUI shop",
+	"authors": [
+		"iruanp_com"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "GPLv3",
+	"icon": "assets/simpleshop/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.iruanp.simpleshop.Simpleshop"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.16.7",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*",
+		"impactor": "*",
+		"fabric-permissions-api-v0": "*"
+	}
+}
