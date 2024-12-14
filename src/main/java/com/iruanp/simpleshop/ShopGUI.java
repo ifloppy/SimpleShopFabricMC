@@ -268,6 +268,7 @@ public class ShopGUI {
                         gui.setSlot(11, new GuiElementBuilder(Items.EMERALD)
                                 .setName(Text.literal("Buy Item").formatted(Formatting.GREEN))
                                 .addLoreLine(Text.literal("Click to buy").formatted(Formatting.GRAY))
+                                .addLoreLine(Text.literal("Command: /shop buy " + itemId + " <Amount>").formatted(Formatting.GRAY))
                                 .setCallback((index, type, action) -> {
                                     Simpleshop.getInstance().buyItemFromShopDirect(player.getCommandSource(), itemId,
                                             1);
@@ -304,6 +305,7 @@ public class ShopGUI {
                             gui.setSlot(13, new GuiElementBuilder(Items.CHEST)
                                     .setName(Text.literal("Stock Item").formatted(Formatting.GOLD))
                                     .addLoreLine(Text.literal("Click to add stock").formatted(Formatting.GRAY))
+                                    .addLoreLine(Text.literal("Command: /shop stock " + itemId + " <amount>").formatted(Formatting.GRAY))
                                     .setCallback((index, type, action) -> {
                                         player.sendMessage(Text.literal("Use: /shop stock " + itemId + " <amount>")
                                                 .formatted(Formatting.GOLD));
@@ -327,6 +329,10 @@ public class ShopGUI {
                         gui.setSlot(16, new GuiElementBuilder(Items.WRITABLE_BOOK)
                                 .setName(Text.literal("Edit Item").formatted(Formatting.AQUA))
                                 .addLoreLine(Text.literal("Click to edit settings").formatted(Formatting.GRAY))
+                                .addLoreLine(Text.literal("Commands:").formatted(Formatting.GRAY))
+                                .addLoreLine(Text.literal("/shop edit " + itemId + " selling").formatted(Formatting.GRAY))
+                                .addLoreLine(Text.literal("/shop edit " + itemId + " buying").formatted(Formatting.GRAY))
+                                .addLoreLine(Text.literal("/shop edit " + itemId + " price <value>").formatted(Formatting.GRAY))
                                 .setCallback((index, type, action) -> {
                                     player.sendMessage(Text.literal("Edit commands:").formatted(Formatting.AQUA));
                                     player.sendMessage(Text.literal("/shop edit " + itemId + " selling")
