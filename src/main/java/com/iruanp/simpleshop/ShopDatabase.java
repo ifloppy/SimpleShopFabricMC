@@ -219,10 +219,16 @@ class ShopDatabase {
             if (rs.next()) {
                 String nbtJson = rs.getString("nbtData");
                 JsonElement element = JsonParser.parseString(nbtJson);
-                return ItemStack.CODEC.decode(Simpleshop.jsonops, element)
+                ItemStack itemStack = ItemStack.CODEC.decode(Simpleshop.jsonops, element)
                     .result()
                     .map(Pair::getFirst)
                     .orElse(ItemStack.EMPTY);
+                
+                // Ensure item count is 1
+                if (!itemStack.isEmpty() && itemStack.getCount() > 1) {
+                    itemStack.setCount(1);
+                }
+                return itemStack;
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -326,6 +332,76 @@ class ShopDatabase {
         try {
             if (connection != null) {
                 connection.close();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void updateItemPrice(int itemId, BigDecimal price) {
+        String sql = "UPDATE items SET price = ? WHERE id = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setBigDecimal(1, price);
+            pstmt.setInt(2, itemId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void toggleItemMode(int itemId) {
+        String sql = "UPDATE items SET isSelling = NOT isSelling WHERE id = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setInt(1, itemId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void updateShopDescription(String shopName, String description) {
+        String sql = "UPDATE shops SET description = ? WHERE name = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, description);
+            pstmt.setString(2, shopName);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void normalizeItemCounts() {
+        String selectSql = "SELECT id, nbtData FROM items";
+        String updateSql = "UPDATE items SET nbtData = ? WHERE id = ?";
+        
+        try (PreparedStatement selectStmt = getConnection().prepareStatement(selectSql)) {
+            ResultSet rs = selectStmt.executeQuery();
+            
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String nbtJson = rs.getString("nbtData");
+                JsonElement element = JsonParser.parseString(nbtJson);
+                
+                ItemStack itemStack = ItemStack.CODEC.decode(Simpleshop.jsonops, element)
+                    .result()
+                    .map(Pair::getFirst)
+                    .orElse(null);
+                
+                if (itemStack != null && !itemStack.isEmpty() && itemStack.getCount() > 1) {
+                    itemStack.setCount(1);
+                    JsonElement updatedElement = ItemStack.CODEC
+                        .encode(itemStack, Simpleshop.jsonops, Simpleshop.jsonops.empty())
+                        .result()
+                        .orElse(null);
+                    
+                    if (updatedElement != null) {
+                        try (PreparedStatement updateStmt = getConnection().prepareStatement(updateSql)) {
+                            updateStmt.setString(1, updatedElement.toString());
+                            updateStmt.setInt(2, id);
+                            updateStmt.executeUpdate();
+                        }
+                    }
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();

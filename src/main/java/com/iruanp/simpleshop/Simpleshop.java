@@ -3,6 +3,7 @@ package com.iruanp.simpleshop;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
@@ -49,6 +50,7 @@ public class Simpleshop implements ModInitializer {
     public static ShopDatabase shopDatabase;
     private EconomyProvider economyProvider;
     private EconomyCurrency defaultCurrency;
+    private ShopGUI shopGUI;
 
     public MinecraftServer serverInstance;
 
@@ -61,7 +63,7 @@ public class Simpleshop implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("SimpleShop is loading.");
+        // Don't initialize database here, wait for server start
         instance = this;
         ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
         CommandRegistrationCallback.EVENT.register(this::registerCommands);
@@ -75,8 +77,14 @@ public class Simpleshop implements ModInitializer {
         this.serverInstance = server;
         String serverPath = serverInstance.getRunDirectory().toAbsolutePath().toString();
         savePath = serverPath + "/" + serverInstance.getSaveProperties().getLevelName();
+        
+        // Initialize jsonops first
+        jsonops = serverInstance.getOverworld().getRegistryManager().getOps(JsonOps.INSTANCE);
+        
+        // Initialize database and GUI only once
         shopDatabase = new ShopDatabase();
-
+        shopGUI = new ShopGUI(shopDatabase);
+        
         // Get the first available economy provider and currency
         var providers = CommonEconomy.providers();
         if (providers.isEmpty()) {
@@ -92,15 +100,17 @@ public class Simpleshop implements ModInitializer {
         }
         defaultCurrency = currencies.iterator().next();
         
-        jsonops = serverInstance.getOverworld().getRegistryManager().getOps(JsonOps.INSTANCE);
+        // Normalize item counts after everything is initialized
+        shopDatabase.normalizeItemCounts();
     }
 
     private void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher,
             CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
         dispatcher.register(CommandManager.literal("shop")
+                .requires(Permissions.require("Simpleshop.Use", 0))
                 .executes(context -> {
                     ServerPlayerEntity player = context.getSource().getPlayer();
-                    new ShopGUI(shopDatabase).openShopList(player, 0);
+                    shopGUI.openShopList(player, 0);
                     return 1;
                 })
                 .then(CommandManager.literal("create")
@@ -178,6 +188,7 @@ public class Simpleshop implements ModInitializer {
                                     return 1;
                                 })))
                 .then(CommandManager.literal("itemAdd")
+                        .requires(Permissions.require("Simpleshop.Use", 0))
                         .then(CommandManager.argument("shopName", StringArgumentType.string())
                                 .suggests((context, builder) -> {
                                     shopDatabase.getAllShopNames().forEach(builder::suggest);
@@ -195,25 +206,31 @@ public class Simpleshop implements ModInitializer {
                                                 })))))
 
                 .then(CommandManager.literal("removeItem")
+                        .requires(Permissions.require("Simpleshop.Use", 0))
                         .then(CommandManager.argument("itemId", StringArgumentType.string())
                                 .executes(context -> removeItemFromShop(context))))
                 .then(CommandManager.literal("stock")
+                        .requires(Permissions.require("Simpleshop.Use", 0))
                         .then(CommandManager.argument("itemId", StringArgumentType.string())
                                 .then(CommandManager.argument("amount", IntegerArgumentType.integer(1))
                                         .executes(context -> stockItemInShop(context)))))
                 .then(CommandManager.literal("buy")
+                        .requires(Permissions.require("Simpleshop.Use", 0))
                         .then(CommandManager.argument("itemId", StringArgumentType.string())
                                 .then(CommandManager.argument("amount", IntegerArgumentType.integer(1))
                                         .executes(context -> buyItemFromShop(context)))))
                 .then(CommandManager.literal("sell")
+                        .requires(Permissions.require("Simpleshop.Use", 0))
                         .then(CommandManager.argument("itemId", StringArgumentType.string())
                                 .then(CommandManager.argument("amount", IntegerArgumentType.integer(1))
                                         .executes(context -> sellItemToShop(context)))))
                 .then(CommandManager.literal("take")
+                        .requires(Permissions.require("Simpleshop.Use", 0))
                         .then(CommandManager.argument("itemId", StringArgumentType.string())
                                 .then(CommandManager.argument("amount", IntegerArgumentType.integer(1))
                                         .executes(context -> takeItemFromShop(context)))))
                 .then(CommandManager.literal("edit")
+                        .requires(Permissions.require("Simpleshop.Use", 0))
                         .then(CommandManager.argument("itemId", StringArgumentType.string())
                                 .then(CommandManager.literal("selling")
                                         .executes(context -> editShopItem(context, "selling", "true")))
@@ -323,39 +340,41 @@ public class Simpleshop implements ModInitializer {
 
     public int stockItemInShop(CommandContext<ServerCommandSource> context) {
         ServerCommandSource source = context.getSource();
-        ServerPlayerEntity player = source.getPlayer();
         Integer itemId = Integer.parseInt(StringArgumentType.getString(context, "itemId"));
         int amount = IntegerArgumentType.getInteger(context, "amount");
 
-        if (!shopDatabase.itemExists(itemId)) {
-            source.sendFeedback(() -> Text.literal("Item not found with ID: " + itemId), false);
+        try {
+            stockItemInShopCore(source, itemId, amount);
+            return 1;
+        } catch (IllegalStateException e) {
+            source.sendFeedback(() -> Text.literal(e.getMessage()), false);
             return 0;
+        }
+    }
+
+    void stockItemInShopCore(ServerCommandSource source, Integer itemId, int amount) {
+        if (!shopDatabase.itemExists(itemId)) {
+            throw new IllegalStateException("Item not found with ID: " + itemId);
         }
 
         if (shopDatabase.isAdminShopByItemId(itemId)) {
-            source.sendFeedback(() -> Text.literal("Cannot stock items in admin shops."), false);
-            return 0;
+            throw new IllegalStateException("Cannot stock items in admin shops.");
         }
 
         String itemCreator = shopDatabase.getItemCreator(itemId);
         if (!source.getPlayer().getUuidAsString().equals(itemCreator)) {
-            source.sendFeedback(() -> Text.literal("You don't have permission to stock this item."), false);
-            return 0;
+            throw new IllegalStateException("You don't have permission to stock this item.");
         }
 
         ItemStack shopItem = shopDatabase.getItemStack(itemId);
         if (shopItem == null) {
-            source.sendFeedback(() -> Text.literal("Failed to get item data."), false);
-            return 0;
+            throw new IllegalStateException("Failed to get item data.");
         }
 
+        ServerPlayerEntity player = source.getPlayer();
         int totalAvailable = countMatchingItems(player, shopItem);
         if (totalAvailable < amount) {
-            source.sendFeedback(
-                    () -> Text.literal(
-                            "You don't have enough items. Required: " + amount + ", Available: " + totalAvailable),
-                    false);
-            return 0;
+            throw new IllegalStateException("You don't have enough items. Required: " + amount + ", Available: " + totalAvailable);
         }
 
         int remaining = amount;
@@ -365,16 +384,20 @@ public class Simpleshop implements ModInitializer {
             ItemStack stack = inventory.getStack(i);
             if (!stack.isEmpty() && stack.isOf(shopItem.getItem())) {
                 int toRemove = Math.min(remaining, stack.getCount());
-                stack.decrement(toRemove);
+                int newCount = stack.getCount() - toRemove;
+                if (newCount > 0) {
+                    ItemStack newStack = stack.copy();
+                    newStack.setCount(newCount);
+                    inventory.setStack(i, newStack);
+                } else {
+                    inventory.setStack(i, ItemStack.EMPTY);
+                }
                 remaining -= toRemove;
             }
         }
 
         shopDatabase.addStockToItem(itemId, amount);
-
-        source.sendFeedback(() -> Text.literal("Successfully stocked " + amount + " items. (Remaining in inventory: "
-                + (totalAvailable - amount) + ")"), false);
-        return 1;
+        source.sendFeedback(() -> Text.literal("Successfully stocked " + amount + " items. (Remaining in inventory: " + (totalAvailable - amount) + ")"), false);
     }
 
     public int takeItemFromShop(CommandContext<ServerCommandSource> context) {
@@ -441,7 +464,7 @@ public class Simpleshop implements ModInitializer {
         }
     }
 
-    private void buyItemFromShopCore(ServerCommandSource source, Integer itemId, int amount) {
+    void buyItemFromShopCore(ServerCommandSource source, Integer itemId, int amount) {
         if (!shopDatabase.itemExists(itemId)) {
             throw new IllegalStateException("Item not found with ID: " + itemId);
         }
@@ -522,7 +545,7 @@ public class Simpleshop implements ModInitializer {
         }
     }
 
-    private void sellItemToShopCore(ServerCommandSource source, Integer itemId, int amount) {
+    void sellItemToShopCore(ServerCommandSource source, Integer itemId, int amount) {
         if (!shopDatabase.itemExists(itemId)) {
             throw new IllegalStateException("Item not found with ID: " + itemId);
         }
@@ -590,26 +613,6 @@ public class Simpleshop implements ModInitializer {
         }
 
         source.sendFeedback(() -> Text.literal("Successfully sold " + amount + " items for " + formatCurrency(totalCost)), false);
-    }
-
-    public int buyItemFromShopDirect(ServerCommandSource source, int itemId, int amount) {
-        try {
-            buyItemFromShopCore(source, itemId, amount);
-            return 1;
-        } catch (IllegalStateException e) {
-            source.sendFeedback(() -> Text.literal(e.getMessage()), false);
-            return 0;
-        }
-    }
-
-    public int sellItemToShopDirect(ServerCommandSource source, int itemId, int amount) {
-        try {
-            sellItemToShopCore(source, itemId, amount);
-            return 1;
-        } catch (IllegalStateException e) {
-            source.sendFeedback(() -> Text.literal(e.getMessage()), false);
-            return 0;
-        }
     }
 
     private int editShopItem(CommandContext<ServerCommandSource> context, String property, String value) {
