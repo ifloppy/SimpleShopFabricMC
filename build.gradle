@@ -17,10 +17,6 @@ repositories {
 	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
 	// for more information about repositories.
 
-	maven {
-        url "https://maven.impactdev.net/repository/development"
-    }
-
 	maven { url 'https://maven.nucleoid.xyz' }
 	maven { url "https://repo.papermc.io/repository/maven-public/" }
 }
@@ -47,13 +43,14 @@ dependencies {
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 	
 	implementation "net.kyori:event-api:5.0.0-SNAPSHOT"
-	implementation "net.impactdev.impactor.api:economy:5.2.0-SNAPSHOT"
 
 	modImplementation 'me.lucko:fabric-permissions-api:0.3.1'
 
-	modImplementation include("eu.pb4:sgui:1.6.1+1.21.1")
+	modImplementation include("eu.pb4:sgui:1.8.1+1.21.4")
 
-	implementation 'org.xerial:sqlite-jdbc:3.36.0.3'
+	implementation 'org.xerial:sqlite-jdbc:3.47.2.0'
+
+	modImplementation include("eu.pb4:common-economy-api:1.1.1")
 }
 
 processResources {

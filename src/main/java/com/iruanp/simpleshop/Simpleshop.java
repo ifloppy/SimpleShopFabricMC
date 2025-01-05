@@ -12,11 +12,13 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonElement;
+import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -25,16 +27,19 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.serialization.JsonOps;
 
 import me.lucko.fabric.api.permissions.v0.Permissions;
-import net.impactdev.impactor.api.Impactor;
-import net.impactdev.impactor.api.economy.*;
-import net.impactdev.impactor.api.economy.accounts.Account;
-import net.impactdev.impactor.api.economy.transactions.EconomyTransaction;
+import eu.pb4.common.economy.api.CommonEconomy;
+import eu.pb4.common.economy.api.EconomyAccount;
+import eu.pb4.common.economy.api.EconomyProvider;
+import eu.pb4.common.economy.api.EconomyTransaction;
+import eu.pb4.common.economy.api.EconomyCurrency;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Collection;
 
 public class Simpleshop implements ModInitializer {
     public static final String MOD_ID = "simpleshop";
@@ -42,13 +47,17 @@ public class Simpleshop implements ModInitializer {
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     public static String savePath;
     public static ShopDatabase shopDatabase;
-    EconomyService economyService;
+    private EconomyProvider economyProvider;
+    private EconomyCurrency defaultCurrency;
 
     public MinecraftServer serverInstance;
 
     private static Simpleshop instance;
 
     public static RegistryOps<JsonElement> jsonops;
+
+    // Scale factor for converting between BigDecimal prices and long values (2 decimal places)
+    private static final long PRICE_SCALE = 100;
 
     @Override
     public void onInitialize() {
@@ -68,7 +77,21 @@ public class Simpleshop implements ModInitializer {
         savePath = serverPath + "/" + serverInstance.getSaveProperties().getLevelName();
         shopDatabase = new ShopDatabase();
 
-        economyService = Impactor.instance().services().provide(EconomyService.class);
+        // Get the first available economy provider and currency
+        var providers = CommonEconomy.providers();
+        if (providers.isEmpty()) {
+            LOGGER.error("No economy provider found! Shop functionality will be limited.");
+            return;
+        }
+        
+        economyProvider = providers.iterator().next();
+        var currencies = economyProvider.getCurrencies(server);
+        if (currencies.isEmpty()) {
+            LOGGER.error("No currency found! Shop functionality will be limited.");
+            return;
+        }
+        defaultCurrency = currencies.iterator().next();
+        
         jsonops = serverInstance.getOverworld().getRegistryManager().getOps(JsonOps.INSTANCE);
     }
 
@@ -454,22 +477,27 @@ public class Simpleshop implements ModInitializer {
         }
 
         BigDecimal price = shopDatabase.getItemPrice(itemId);
-        BigDecimal totalCost = price.multiply(BigDecimal.valueOf(amount));
-        Account account = economyService.account(player.getUuid()).join();
-
-        if (account.balance().compareTo(totalCost) < 0) {
-            throw new IllegalStateException("You cannot afford this purchase. Cost: " + totalCost);
+        // Scale up the price for the economy API
+        long totalCost = scalePrice(price, amount);
+        
+        Collection<EconomyAccount> accounts = CommonEconomy.getAccounts(player, defaultCurrency);
+        EconomyAccount account = accounts.isEmpty() ? null : accounts.iterator().next();
+        if (account == null) {
+            throw new IllegalStateException("Could not find your economy account!");
         }
 
-        EconomyTransaction result = account.withdraw(totalCost);
-        if (!result.successful()) {
-            throw new IllegalStateException("Transaction failed: " + result.result().name());
+        EconomyTransaction result = account.decreaseBalance(totalCost);
+        if (!result.isSuccessful()) {
+            throw new IllegalStateException("Transaction failed: " + result.message().getString());
         }
 
         if (!shopDatabase.isAdminShopByItemId(itemId)) {
             if (!itemCreator.isEmpty()) {
-                Account sellerAccount = economyService.account(UUID.fromString(itemCreator)).join();
-                sellerAccount.deposit(totalCost);
+                Collection<EconomyAccount> sellerAccounts = CommonEconomy.getAccounts(serverInstance, new GameProfile(UUID.fromString(itemCreator), ""), defaultCurrency);
+                EconomyAccount sellerAccount = sellerAccounts.isEmpty() ? null : sellerAccounts.iterator().next();
+                if (sellerAccount != null) {
+                    sellerAccount.increaseBalance(totalCost);
+                }
             } else {
                 LOGGER.warn("Seller is NULL in this transaction");
             }
@@ -477,7 +505,7 @@ public class Simpleshop implements ModInitializer {
         }
 
         player.getInventory().insertStack(purchaseStack);
-        source.sendFeedback(() -> Text.literal("Successfully bought " + amount + " items for " + totalCost), false);
+        source.sendFeedback(() -> Text.literal("Successfully bought " + amount + " items for " + formatCurrency(totalCost)), false);
     }
 
     public int sellItemToShop(CommandContext<ServerCommandSource> context) {
@@ -527,26 +555,33 @@ public class Simpleshop implements ModInitializer {
         }
 
         BigDecimal price = shopDatabase.getItemPrice(itemId);
-        BigDecimal totalCost = price.multiply(BigDecimal.valueOf(amount));
+        // Scale up the price for the economy API
+        long totalCost = scalePrice(price, amount);
 
         if (!shopDatabase.isAdminShopByItemId(itemId)) {
             if (!itemCreator.isEmpty()) {
-                Account creatorAccount = economyService.account(UUID.fromString(itemCreator)).join();
-                if (creatorAccount.balance().compareTo(totalCost) < 0) {
-                    throw new IllegalStateException("The shop owner cannot afford this purchase.");
+                Collection<EconomyAccount> creatorAccounts = CommonEconomy.getAccounts(serverInstance, new GameProfile(UUID.fromString(itemCreator), ""), defaultCurrency);
+                EconomyAccount creatorAccount = creatorAccounts.isEmpty() ? null : creatorAccounts.iterator().next();
+                if (creatorAccount == null) {
+                    throw new IllegalStateException("Could not find shop owner's economy account!");
                 }
 
-                EconomyTransaction creatorResult = creatorAccount.withdraw(totalCost);
-                if (!creatorResult.successful()) {
-                    throw new IllegalStateException("Transaction failed: " + creatorResult.result().name());
+                EconomyTransaction creatorResult = creatorAccount.decreaseBalance(totalCost);
+                if (!creatorResult.isSuccessful()) {
+                    throw new IllegalStateException("Transaction failed: " + creatorResult.message().getString());
                 }
             }
         }
 
-        Account sellerAccount = economyService.account(player.getUuid()).join();
-        EconomyTransaction sellerResult = sellerAccount.deposit(totalCost);
-        if (!sellerResult.successful()) {
-            throw new IllegalStateException("Transaction failed: " + sellerResult.result().name());
+        Collection<EconomyAccount> sellerAccounts = CommonEconomy.getAccounts(player, defaultCurrency);
+        EconomyAccount sellerAccount = sellerAccounts.isEmpty() ? null : sellerAccounts.iterator().next();
+        if (sellerAccount == null) {
+            throw new IllegalStateException("Could not find your economy account!");
+        }
+
+        EconomyTransaction sellerResult = sellerAccount.increaseBalance(totalCost);
+        if (!sellerResult.isSuccessful()) {
+            throw new IllegalStateException("Transaction failed: " + sellerResult.message().getString());
         }
 
         playerStack.decrement(amount);
@@ -554,7 +589,7 @@ public class Simpleshop implements ModInitializer {
             shopDatabase.addStockToItem(itemId, amount);
         }
 
-        source.sendFeedback(() -> Text.literal("Successfully sold " + amount + " items for " + totalCost), false);
+        source.sendFeedback(() -> Text.literal("Successfully sold " + amount + " items for " + formatCurrency(totalCost)), false);
     }
 
     public int buyItemFromShopDirect(ServerCommandSource source, int itemId, int amount) {
@@ -637,5 +672,23 @@ public class Simpleshop implements ModInitializer {
             }
         }
         return total;
+    }
+
+    private String formatCurrency(long scaledValue) {
+        return defaultCurrency.formatValue(scaledValue, true);
+    }
+
+    public String formatPrice(BigDecimal price) {
+        // Convert price to string with proper format for the currency to parse
+        String priceStr = String.format("%.2f", price);
+        // Let the currency handle the parsing and formatting
+        return defaultCurrency.formatValue(defaultCurrency.parseValue(priceStr), true);
+    }
+
+    private long scalePrice(BigDecimal price, int amount) {
+        // Convert price to string with proper format
+        String priceStr = String.format("%.2f", price.multiply(BigDecimal.valueOf(amount)));
+        // Let the currency handle the parsing to get the proper scaled value
+        return defaultCurrency.parseValue(priceStr);
     }
 }

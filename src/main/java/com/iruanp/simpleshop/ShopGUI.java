@@ -8,6 +8,7 @@ import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import me.lucko.fabric.api.permissions.v0.Permissions;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -108,11 +109,11 @@ public class ShopGUI {
             element.addLoreLine(Text.empty());
 
             if (item.isSelling) {
-                element.addLoreLine(Text.literal("Buy Price: $" + item.price.setScale(2, RoundingMode.HALF_UP))
+                element.addLoreLine(Text.literal("Buy Price: " + Simpleshop.getInstance().formatPrice(item.price))
                         .formatted(Formatting.GREEN));
                 element.addLoreLine(Text.literal("Stock: " + item.quantity).formatted(Formatting.AQUA));
             } else {
-                element.addLoreLine(Text.literal("Sell Price: $" + item.price.setScale(2, RoundingMode.HALF_UP))
+                element.addLoreLine(Text.literal("Sell Price: " + Simpleshop.getInstance().formatPrice(item.price))
                         .formatted(Formatting.YELLOW));
             }
 
@@ -246,7 +247,7 @@ public class ShopGUI {
                         creator = "Unknown";
                     }
                     boolean isCreator = player.getName().getString().equals(creator);
-                    boolean isAdmin = player.hasPermissionLevel(2);
+                    boolean isAdmin = Permissions.check(player, "Simpleshop.Admin", 2);
 
                     // Display item
                     GuiElementBuilder itemElement = new GuiElementBuilder(itemStack.copy())
@@ -254,9 +255,8 @@ public class ShopGUI {
                             .addLoreLine(Text.literal("Quantity: " + quantity).formatted(Formatting.AQUA))
                             .addLoreLine(Text
                                     .literal(isSelling
-                                            ? String.format("Buy Price: $%.2f", price.setScale(2, RoundingMode.HALF_UP))
-                                            : String.format("Sell Price: $%.2f",
-                                                    price.setScale(2, RoundingMode.HALF_UP)))
+                                            ? "Buy Price: " + Simpleshop.getInstance().formatPrice(price)
+                                            : "Sell Price: " + Simpleshop.getInstance().formatPrice(price))
                                     .formatted(isSelling ? Formatting.GREEN : Formatting.YELLOW))
                             .addLoreLine(Text.empty())
                             .addLoreLine(Text.literal("Creator: " + creator).formatted(Formatting.GRAY));

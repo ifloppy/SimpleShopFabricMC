@@ -24,7 +24,7 @@
 		"minecraft": "~1.21.1",
 		"java": ">=21",
 		"fabric-api": "*",
-		"impactor": "*",
-		"fabric-permissions-api-v0": "*"
+		"fabric-permissions-api-v0": "*",
+		"common-economy-api": "*"
 	}
 }
