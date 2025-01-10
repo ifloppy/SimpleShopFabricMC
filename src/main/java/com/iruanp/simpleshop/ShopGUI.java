@@ -77,15 +77,49 @@ public class ShopGUI {
             element.addLoreLine(Text.literal("Click to view items").formatted(Formatting.GREEN));
             element.addLoreLine(Text.literal("Shift-Click to edit description").formatted(Formatting.YELLOW));
 
+            if (Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2)) {
+                element.addLoreLine(Text.empty());
+                element.addLoreLine(Text.literal("Right-Click to edit shop settings").formatted(Formatting.GOLD));
+            }
+
             element.setCallback((index, type, action) -> {
                 if (type.shift) {
-                    openDescriptionEditor(player, shopName);
+                    if (Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2)) {
+                        openDescriptionEditor(player, shop.name);
+                    } else {
+                        player.sendMessage(Text.literal("You don't have permission to edit shop description!").formatted(Formatting.RED), false);
+                    }
+                } else if (type.isRight && Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2)) {
+                    openShopSettings(player, shop.name);
                 } else {
-                    openShopItems(player, shopName, 0);
+                    openShopItems(player, shop.name, 0);
                 }
             });
 
             gui.setSlot(slot, element.build());
+        }
+
+        // Add create shop buttons for admins
+        if (Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2)) {
+            // Create normal shop button
+            gui.setSlot(SLOTS_PER_PAGE + 3, new GuiElementBuilder(Items.CHEST)
+                    .setName(Text.literal("Create Normal Shop").formatted(Formatting.GREEN))
+                    .addLoreLine(Text.literal("Click to create a new player shop").formatted(Formatting.GRAY))
+                    .addLoreLine(Text.literal("Hold an item to use as shop icon").formatted(Formatting.YELLOW))
+                    .setCallback((index, type, action) -> {
+                        openCreateShopDialog(player, false);
+                    })
+                    .build());
+
+            // Create admin shop button
+            gui.setSlot(SLOTS_PER_PAGE + 5, new GuiElementBuilder(Items.ENDER_CHEST)
+                    .setName(Text.literal("Create Admin Shop").formatted(Formatting.GOLD))
+                    .addLoreLine(Text.literal("Click to create a new admin shop").formatted(Formatting.GRAY))
+                    .addLoreLine(Text.literal("Hold an item to use as shop icon").formatted(Formatting.YELLOW))
+                    .setCallback((index, type, action) -> {
+                        openCreateShopDialog(player, true);
+                    })
+                    .build());
         }
 
         addNavigationButtons(gui, player, page, maxPages);
@@ -673,6 +707,118 @@ public class ShopGUI {
         signGui.setLine(0, Text.literal(""));
         signGui.setLine(1, Text.literal("Enter amount to take"));
         signGui.setLine(2, Text.literal("from stock"));
+        signGui.open();
+    }
+
+    private void openShopSettings(ServerPlayerEntity player, String shopName) {
+        SimpleGui gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
+        gui.setTitle(Text.literal("Shop Settings - " + shopName));
+
+        // Edit Name button
+        gui.setSlot(11, new GuiElementBuilder(Items.NAME_TAG)
+                .setName(Text.literal("Edit Shop Name").formatted(Formatting.YELLOW))
+                .addLoreLine(Text.literal("Click to change shop name").formatted(Formatting.GRAY))
+                .setCallback((index, type, action) -> {
+                    openShopNameEditor(player, shopName);
+                })
+                .build());
+
+        // Edit Description button
+        gui.setSlot(13, new GuiElementBuilder(Items.WRITABLE_BOOK)
+                .setName(Text.literal("Edit Description").formatted(Formatting.GREEN))
+                .addLoreLine(Text.literal("Click to change description").formatted(Formatting.GRAY))
+                .setCallback((index, type, action) -> {
+                    openDescriptionEditor(player, shopName);
+                })
+                .build());
+
+        // Edit Icon button
+        gui.setSlot(15, new GuiElementBuilder(Items.ITEM_FRAME)
+                .setName(Text.literal("Change Shop Icon").formatted(Formatting.AQUA))
+                .addLoreLine(Text.literal("Click to set held item as icon").formatted(Formatting.GRAY))
+                .setCallback((index, type, action) -> {
+                    ItemStack heldItem = player.getMainHandStack();
+                    if (!heldItem.isEmpty()) {
+                        JsonElement serializedItem = ItemStack.CODEC
+                                .encode(heldItem, JsonOps.INSTANCE, JsonOps.INSTANCE.empty())
+                                .result()
+                                .orElseThrow();
+                        database.updateShopIcon(shopName, serializedItem.toString());
+                        player.sendMessage(Text.literal("Shop icon updated!").formatted(Formatting.GREEN), false);
+                        openShopList(player, 0);
+                    } else {
+                        player.sendMessage(Text.literal("You must hold an item to set as the shop icon!").formatted(Formatting.RED), false);
+                    }
+                })
+                .build());
+
+        // Back button
+        gui.setSlot(22, new GuiElementBuilder(Items.BARRIER)
+                .setName(Text.literal("Back").formatted(Formatting.RED))
+                .setCallback((index, type, action) -> openShopList(player, 0))
+                .build());
+
+        gui.open();
+    }
+
+    private void openShopNameEditor(ServerPlayerEntity player, String oldShopName) {
+        SignGui signGui = new SignGui(player) {
+            @Override
+            public void onClose() {
+                String newName = this.getLine(0).getString().trim();
+                if (!newName.isEmpty() && !newName.equals(oldShopName)) {
+                    if (!database.shopExists(newName)) {
+                        database.updateShopName(oldShopName, newName);
+                        player.sendMessage(Text.literal("Shop name updated!").formatted(Formatting.GREEN), false);
+                        openShopList(player, 0);
+                    } else {
+                        player.sendMessage(Text.literal("A shop with that name already exists!").formatted(Formatting.RED), false);
+                        openShopSettings(player, oldShopName);
+                    }
+                } else {
+                    openShopSettings(player, oldShopName);
+                }
+            }
+        };
+        signGui.setLine(0, Text.literal(""));
+        signGui.setLine(1, Text.literal("Enter new shop name"));
+        signGui.setLine(2, Text.literal("on the first line"));
+        signGui.open();
+    }
+
+    private void openCreateShopDialog(ServerPlayerEntity player, boolean isAdminShop) {
+        ItemStack heldItem = player.getMainHandStack();
+        if (heldItem.isEmpty()) {
+            player.sendMessage(Text.literal("You must hold an item to use as the shop icon!").formatted(Formatting.RED), false);
+            return;
+        }
+
+        SignGui signGui = new SignGui(player) {
+            @Override
+            public void onClose() {
+                String shopName = this.getLine(0).getString().trim();
+                if (!shopName.isEmpty()) {
+                    if (!database.shopExists(shopName)) {
+                        JsonElement serializedItem = ItemStack.CODEC
+                                .encode(heldItem, JsonOps.INSTANCE, JsonOps.INSTANCE.empty())
+                                .result()
+                                .orElseThrow();
+                        database.addShop(shopName, serializedItem.toString(), "", isAdminShop);
+                        player.sendMessage(Text.literal((isAdminShop ? "Admin shop" : "Shop") + " created: " + shopName)
+                                .formatted(Formatting.GREEN), false);
+                        openShopList(player, 0);
+                    } else {
+                        player.sendMessage(Text.literal("A shop with that name already exists!").formatted(Formatting.RED), false);
+                        openShopList(player, 0);
+                    }
+                } else {
+                    openShopList(player, 0);
+                }
+            }
+        };
+        signGui.setLine(0, Text.literal(""));
+        signGui.setLine(1, Text.literal("Enter shop name"));
+        signGui.setLine(2, Text.literal("on the first line"));
         signGui.open();
     }
 

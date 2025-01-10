@@ -370,6 +370,28 @@ class ShopDatabase {
         }
     }
 
+    public void updateShopName(String oldName, String newName) {
+        String sql = "UPDATE shops SET name = ? WHERE name = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, newName);
+            pstmt.setString(2, oldName);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void updateShopIcon(String shopName, String itemNbtData) {
+        String sql = "UPDATE shops SET item = ? WHERE name = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, itemNbtData);
+            pstmt.setString(2, shopName);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
     public void normalizeItemCounts() {
         String selectSql = "SELECT id, nbtData FROM items";
         String updateSql = "UPDATE items SET nbtData = ? WHERE id = ?";
