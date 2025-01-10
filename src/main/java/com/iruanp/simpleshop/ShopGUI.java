@@ -3,7 +3,6 @@ package com.iruanp.simpleshop;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import eu.pb4.sgui.api.gui.SignGui;
-import eu.pb4.sgui.api.ClickType;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.screen.ScreenHandlerType;
@@ -13,7 +12,6 @@ import net.minecraft.util.Formatting;
 import me.lucko.fabric.api.permissions.v0.Permissions;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -54,7 +52,6 @@ public class ShopGUI {
         for (int i = startIndex; i < endIndex; i++) {
             ShopEntry shop = shops.get(i);
             int slot = i - startIndex;
-            String shopName = shop.name;
             JsonElement shopItem = JsonParser.parseString(shop.item);
             ItemStack shopItemStack = ItemStack.CODEC.decode(JsonOps.INSTANCE, shopItem)
                     .resultOrPartial(Simpleshop.LOGGER::error)

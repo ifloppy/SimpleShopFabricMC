@@ -3,7 +3,6 @@ package com.iruanp.simpleshop;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
@@ -13,8 +12,6 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +32,6 @@ import eu.pb4.common.economy.api.EconomyTransaction;
 import eu.pb4.common.economy.api.EconomyCurrency;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -57,9 +53,6 @@ public class Simpleshop implements ModInitializer {
     private static Simpleshop instance;
 
     public static RegistryOps<JsonElement> jsonops;
-
-    // Scale factor for converting between BigDecimal prices and long values (2 decimal places)
-    private static final long PRICE_SCALE = 100;
 
     @Override
     public void onInitialize() {
