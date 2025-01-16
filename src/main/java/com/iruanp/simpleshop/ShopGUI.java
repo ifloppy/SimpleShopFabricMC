@@ -44,7 +44,7 @@ public class ShopGUI {
             page = maxPages - 1;
 
         SimpleGui gui = new SimpleGui(ScreenHandlerType.GENERIC_9X6, player, false);
-        gui.setTitle(I18n.translate("gui.shop.title", page + 1, maxPages));
+        gui.setTitle(Text.literal(Config.getShopTitle() + " - Page " + (page + 1) + "/" + maxPages));
 
         int startIndex = page * SLOTS_PER_PAGE;
         int endIndex = Math.min(startIndex + SLOTS_PER_PAGE, shops.size());

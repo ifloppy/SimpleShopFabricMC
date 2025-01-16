@@ -118,5 +118,7 @@
     "gui.item.price": "价格：%s",
     "gui.item.stock": "库存：%d",
     "dialog.edit_description": "输入描述",
-    "dialog.edit_description.lines": "在这些行上输入"
-} 
+    "dialog.edit_description.lines": "在这些行上输入",
+    
+    "command.reload.success": "配置和消息已成功重新加载！"
+}
