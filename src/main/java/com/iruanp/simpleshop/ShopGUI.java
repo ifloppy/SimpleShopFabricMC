@@ -184,6 +184,15 @@ public class ShopGUI {
                         .formatted(Formatting.YELLOW));
             }
 
+            // Add creator info if not an admin shop
+            if (!database.isAdminShop(shopName) && item.creator != null) {
+                String creatorName = PlayerUtils.getPlayerName(UUID.fromString(item.creator));
+                if (creatorName != null) {
+                    element.addLoreLine(Text.empty());
+                    element.addLoreLine(I18n.translate("gui.item.creator", creatorName).formatted(Formatting.GRAY));
+                }
+            }
+
             element.addLoreLine(Text.empty());
             element.addLoreLine(I18n.translate("gui.item.click_details").formatted(Formatting.GRAY));
             element.addLoreLine(I18n.translate("gui.item.click_quick_action").formatted(Formatting.GOLD));
@@ -465,7 +474,7 @@ public class ShopGUI {
 
     private List<ShopItemEntry> getShopItems(String shopName) {
         List<ShopItemEntry> items = new ArrayList<>();
-        String sql = "SELECT i.id, i.nbtData, i.quantity, i.isSelling, i.price FROM items i " +
+        String sql = "SELECT i.id, i.nbtData, i.quantity, i.isSelling, i.price, i.creator FROM items i " +
                 "JOIN shops s ON i.shopId = s.id WHERE s.name = ?";
 
         try (PreparedStatement pstmt = database.getConnection().prepareStatement(sql)) {
@@ -480,7 +489,8 @@ public class ShopGUI {
                             itemStack,
                             rs.getInt("quantity"),
                             rs.getBoolean("isSelling"),
-                            rs.getBigDecimal("price")));
+                            rs.getBigDecimal("price"),
+                            rs.getString("creator")));
                 }
             }
         } catch (SQLException e) {
@@ -863,13 +873,15 @@ public class ShopGUI {
         int quantity;
         boolean isSelling;
         BigDecimal price;
+        String creator;
 
-        ShopItemEntry(int id, ItemStack itemStack, int quantity, boolean isSelling, BigDecimal price) {
+        ShopItemEntry(int id, ItemStack itemStack, int quantity, boolean isSelling, BigDecimal price, String creator) {
             this.id = id;
             this.itemStack = itemStack;
             this.quantity = quantity;
             this.isSelling = isSelling;
             this.price = price;
+            this.creator = creator;
         }
     }
 }
