@@ -599,8 +599,19 @@ public class ShopGUI {
                                 })
                                 .build());
 
+                        // Move item button (only for non-admin shops)
+                        if (!rs.getBoolean("isAdminShop")) {
+                            gui.setSlot(14, new GuiElementBuilder(Items.ENDER_PEARL)
+                                    .setName(I18n.translate("gui.item.move").formatted(Formatting.LIGHT_PURPLE))
+                                    .addLoreLine(I18n.translate("gui.item.move.desc").formatted(Formatting.GRAY))
+                                    .setCallback((index, type, action) -> {
+                                        openMoveItemDialog(player, itemId, shopName);
+                                    })
+                                    .build());
+                        }
+
                         // Toggle buy/sell mode
-                        gui.setSlot(14, new GuiElementBuilder(isSelling ? Items.HOPPER : Items.CHEST)
+                        gui.setSlot(15, new GuiElementBuilder(isSelling ? Items.HOPPER : Items.CHEST)
                                 .setName(I18n.translate("gui.item.toggle_mode").formatted(Formatting.AQUA))
                                 .addLoreLine(I18n.translate("gui.item.toggle_mode.current", 
                                         I18n.translate(isSelling ? "gui.item.toggle_mode.selling" : "gui.item.toggle_mode.buying").getString())
@@ -882,6 +893,96 @@ public class ShopGUI {
             this.isSelling = isSelling;
             this.price = price;
             this.creator = creator;
+        }
+    }
+
+    private void openMoveItemDialog(ServerPlayerEntity player, int itemId, String currentShopName) {
+        // Get list of user shops excluding current shop
+        List<ShopEntry> userShops = getUserShops(currentShopName);
+        if (userShops.isEmpty()) {
+            player.sendMessage(I18n.translate("error.no_other_shops").formatted(Formatting.RED), false);
+            return;
+        }
+
+        SimpleGui gui = new SimpleGui(ScreenHandlerType.GENERIC_9X6, player, false);
+        gui.setTitle(I18n.translate("gui.item.move.title"));
+
+        // Display available shops
+        for (int i = 0; i < Math.min(userShops.size(), SLOTS_PER_PAGE); i++) {
+            ShopEntry shop = userShops.get(i);
+            JsonElement shopItem = JsonParser.parseString(shop.item);
+            ItemStack shopItemStack = ItemStack.CODEC.decode(JsonOps.INSTANCE, shopItem)
+                    .resultOrPartial(Simpleshop.LOGGER::error)
+                    .map(Pair::getFirst)
+                    .orElse(null);
+
+            GuiElementBuilder element = new GuiElementBuilder()
+                    .setItem(shopItemStack.getItem())
+                    .setName(Text.literal(shop.name))
+                    .addLoreLine(Text.empty())
+                    .addLoreLine(I18n.translate("gui.item.move.click").formatted(Formatting.YELLOW));
+
+            if (!shop.description.isEmpty()) {
+                element.addLoreLine(Text.empty());
+                element.addLoreLine(Text.literal(shop.description).formatted(Formatting.GRAY));
+            }
+
+            element.setCallback((index, type, action) -> {
+                moveItemToShop(player, itemId, currentShopName, shop.name);
+            });
+
+            gui.setSlot(i, element.build());
+        }
+
+        // Back button
+        gui.setSlot(SLOTS_PER_PAGE + 4, new GuiElementBuilder()
+                .setItem(Items.BARRIER)
+                .setName(I18n.translate("gui.shop.back").formatted(Formatting.RED))
+                .setCallback((index, type, action) -> openItemDetails(player, currentShopName, itemId))
+                .build());
+
+        gui.open();
+    }
+
+    private List<ShopEntry> getUserShops(String excludeShopName) {
+        List<ShopEntry> shops = new ArrayList<>();
+        String sql = "SELECT name, description, isAdminShop, item FROM shops WHERE isAdminShop = 0 AND name != ? ORDER BY name";
+
+        try (PreparedStatement pstmt = database.getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, excludeShopName);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                shops.add(new ShopEntry(
+                        rs.getString("name"),
+                        rs.getString("description"),
+                        rs.getBoolean("isAdminShop"),
+                        rs.getString("item")));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return shops;
+    }
+
+    private void moveItemToShop(ServerPlayerEntity player, int itemId, String fromShopName, String toShopName) {
+        try {
+            // Get target shop ID
+            int targetShopId = database.getShopIdByName(toShopName);
+            
+            // Update item's shop ID
+            String sql = "UPDATE items SET shopId = ? WHERE id = ?";
+            try (PreparedStatement pstmt = database.getConnection().prepareStatement(sql)) {
+                pstmt.setInt(1, targetShopId);
+                pstmt.setInt(2, itemId);
+                pstmt.executeUpdate();
+            }
+
+            player.sendMessage(I18n.translate("item.move.success", fromShopName, toShopName).formatted(Formatting.GREEN), false);
+            openShopItems(player, toShopName, 0);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            player.sendMessage(I18n.translate("error.move_failed").formatted(Formatting.RED), false);
+            openItemDetails(player, fromShopName, itemId);
         }
     }
 }

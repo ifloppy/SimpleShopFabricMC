@@ -120,5 +120,13 @@
     "dialog.edit_description": "输入描述",
     "dialog.edit_description.lines": "在这些行上输入",
     
+    "gui.item.move": "移动物品",
+    "gui.item.move.desc": "将此物品移动到其他商店",
+    "gui.item.move.title": "选择目标商店",
+    "gui.item.move.click": "点击将物品移动到这里",
+    "error.no_other_shops": "没有其他可用的玩家商店",
+    "item.move.success": "物品已从%s移动到%s",
+    "error.move_failed": "移动物品失败",
+    
     "command.reload.success": "配置和消息已成功重新加载！"
 }
