@@ -188,6 +188,7 @@ public class I18n {
         defaultTranslations.put("error.price.zero", "Price must be greater than 0!");
         defaultTranslations.put("error.price.invalid", "Invalid price format!");
         defaultTranslations.put("error.item.create", "Failed to create item: %s");
+        defaultTranslations.put("command.reload.success", "Successfully reloaded configuration and messages!");
 
         try {
             Path defaultLangFile = langDir.resolve(DEFAULT_LANGUAGE + ".json");

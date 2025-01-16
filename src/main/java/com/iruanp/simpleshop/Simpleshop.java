@@ -95,7 +95,15 @@ public class Simpleshop implements ModInitializer {
                     ServerPlayerEntity player = context.getSource().getPlayer();
                     shopGUI.openShopList(player, 0);
                     return 1;
-                }));
+                })
+                .then(CommandManager.literal("reload")
+                    .requires(Permissions.require("Simpleshop.Admin", 4))
+                    .executes(context -> {
+                        Config.init(serverInstance.getRunDirectory().resolve("config"));
+                        I18n.init();
+                        context.getSource().sendFeedback(() -> I18n.translate("command.reload.success"), true);
+                        return 1;
+                    })));
     }
 
     private int countMatchingItems(ServerPlayerEntity player, ItemStack targetItem) {
