@@ -35,28 +35,81 @@ class ShopDatabase {
     }
 
     private void initializeDatabase() {
-        String createShopsTable = "CREATE TABLE IF NOT EXISTS shops (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                "name TEXT NOT NULL," +
-                "item TEXT," +
-                "description TEXT," +
-                "isAdminShop BOOLEAN" +
-                ");";
-
-        String createItemsTable = "CREATE TABLE IF NOT EXISTS items (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                "shopId INTEGER," +
-                "nbtData TEXT," +
-                "quantity INTEGER," +
-                "isSelling BOOLEAN," +
-                "price DECIMAL(10, 2)," +
-                "creator TEXT," +
-                "FOREIGN KEY(shopId) REFERENCES shops(id)" +
-                ");";
-
         try (Statement stmt = getConnection().createStatement()) {
-            stmt.execute(createShopsTable);
-            stmt.execute(createItemsTable);
+            // Create shops table
+            stmt.execute("CREATE TABLE IF NOT EXISTS shops (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "name TEXT NOT NULL," +
+                    "item TEXT," +
+                    "description TEXT," +
+                    "isAdminShop BOOLEAN" +
+                    ")");
+
+            // Create items table
+            stmt.execute("CREATE TABLE IF NOT EXISTS items (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "shopId INTEGER," +
+                    "nbtData TEXT," +
+                    "quantity INTEGER," +
+                    "isSelling BOOLEAN," +
+                    "price DECIMAL(10, 2)," +
+                    "creator TEXT," +
+                    "FOREIGN KEY(shopId) REFERENCES shops(id)" +
+                    ")");
+
+            // Create notifications table
+            stmt.execute("CREATE TABLE IF NOT EXISTS notifications (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "player_name TEXT NOT NULL," +
+                    "message TEXT NOT NULL," +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                    "is_read INTEGER DEFAULT 0" +
+                    ")");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void addNotification(String playerName, String message) {
+        String sql = "INSERT INTO notifications (player_name, message) VALUES (?, ?)";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, playerName);
+            pstmt.setString(2, message);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public List<String> getUnreadNotifications(String playerName) {
+        List<String> notifications = new ArrayList<>();
+        String sql = "SELECT message FROM notifications WHERE player_name = ? AND is_read = 0";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, playerName);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                notifications.add(rs.getString("message"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return notifications;
+    }
+
+    public void markNotificationsAsRead(String playerName) {
+        String sql = "UPDATE notifications SET is_read = 1 WHERE player_name = ? AND is_read = 0";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, playerName);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void cleanOldNotifications() {
+        String sql = "DELETE FROM notifications WHERE created_at < datetime('now', '-30 days')";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -117,46 +170,18 @@ class ShopDatabase {
         return -1;
     }
 
-    public boolean removeShopByName(String name) {
-        String findShopSql = "SELECT id FROM shops WHERE name = ?";
-        String deleteShopSql = "DELETE FROM shops WHERE id = ?";
-        String deleteItemsSql = "DELETE FROM items WHERE shopId = ?";
-
-        try (PreparedStatement findStmt = getConnection().prepareStatement(findShopSql)) {
-            findStmt.setString(1, name);
-            ResultSet rs = findStmt.executeQuery();
+    public String getItemCreator(Integer itemId) {
+        String sql = "SELECT creator FROM items WHERE id = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setInt(1, itemId);
+            ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                int shopId = rs.getInt("id");
-
-                try (PreparedStatement deleteShopStmt = getConnection().prepareStatement(deleteShopSql);
-                        PreparedStatement deleteItemsStmt = getConnection().prepareStatement(deleteItemsSql)) {
-                    deleteShopStmt.setInt(1, shopId);
-                    deleteItemsStmt.setInt(1, shopId);
-
-                    deleteItemsStmt.executeUpdate();
-                    deleteShopStmt.executeUpdate();
-                    return true;
-                }
+                return rs.getString("creator");
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return false;
-    }
-
-    public void addItem(int shopId, String nbtData, int quantity, boolean isSelling, BigDecimal price, String creator) {
-        String sql = "INSERT INTO items(shopId, nbtData, quantity, isSelling, price, creator) VALUES(?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
-            pstmt.setInt(1, shopId);
-            pstmt.setString(2, nbtData);
-            pstmt.setInt(3, quantity);
-            pstmt.setBoolean(4, isSelling);
-            pstmt.setBigDecimal(5, price);
-            pstmt.setString(6, creator);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        return null;
     }
 
     public boolean itemExists(Integer itemId) {
@@ -171,20 +196,6 @@ class ShopDatabase {
             e.printStackTrace();
         }
         return false;
-    }
-
-    public String getItemCreator(Integer itemId) {
-        String sql = "SELECT creator FROM items WHERE id = ?";
-        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
-            pstmt.setInt(1, itemId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getString("creator");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return "";
     }
 
     public void removeItem(Integer itemId) {
@@ -312,32 +323,6 @@ class ShopDatabase {
         return this.connection;
     }
 
-    public List<String> getAllShopNames() {
-        String sql = "SELECT name FROM shops";
-        List<String> shopNames = new ArrayList<>();
-        
-        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                shopNames.add(rs.getString("name"));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        
-        return shopNames;
-    }
-
-    public void close() {
-        try {
-            if (connection != null) {
-                connection.close();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
     public void updateItemPrice(int itemId, BigDecimal price) {
         String sql = "UPDATE items SET price = ? WHERE id = ?";
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
@@ -392,39 +377,26 @@ class ShopDatabase {
         }
     }
 
-    public void normalizeItemCounts() {
-        String selectSql = "SELECT id, nbtData FROM items";
-        String updateSql = "UPDATE items SET nbtData = ? WHERE id = ?";
-        
-        try (PreparedStatement selectStmt = getConnection().prepareStatement(selectSql)) {
-            ResultSet rs = selectStmt.executeQuery();
-            
-            while (rs.next()) {
-                int id = rs.getInt("id");
-                String nbtJson = rs.getString("nbtData");
-                JsonElement element = JsonParser.parseString(nbtJson);
-                
-                ItemStack itemStack = ItemStack.CODEC.decode(Simpleshop.jsonops, element)
-                    .result()
-                    .map(Pair::getFirst)
-                    .orElse(null);
-                
-                if (itemStack != null && !itemStack.isEmpty() && itemStack.getCount() > 1) {
-                    itemStack.setCount(1);
-                    JsonElement updatedElement = ItemStack.CODEC
-                        .encode(itemStack, Simpleshop.jsonops, Simpleshop.jsonops.empty())
-                        .result()
-                        .orElse(null);
-                    
-                    if (updatedElement != null) {
-                        try (PreparedStatement updateStmt = getConnection().prepareStatement(updateSql)) {
-                            updateStmt.setString(1, updatedElement.toString());
-                            updateStmt.setInt(2, id);
-                            updateStmt.executeUpdate();
-                        }
-                    }
-                }
+    public void close() {
+        try {
+            if (connection != null) {
+                connection.close();
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void addItem(int shopId, String nbtData, int quantity, boolean isSelling, BigDecimal price, String creator) {
+        String sql = "INSERT INTO items(shopId, nbtData, quantity, isSelling, price, creator) VALUES(?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setInt(1, shopId);
+            pstmt.setString(2, nbtData);
+            pstmt.setInt(3, quantity);
+            pstmt.setBoolean(4, isSelling);
+            pstmt.setBigDecimal(5, price);
+            pstmt.setString(6, creator);
+            pstmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }

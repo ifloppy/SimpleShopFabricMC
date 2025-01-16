@@ -245,7 +245,18 @@ public class ShopGUI {
                     String amountStr = this.getLine(0).getString().trim();
                     int amount = Integer.parseInt(amountStr);
                     if (amount > 0) {
+                        // Get item creator before transaction
+                        String creatorName = PlayerUtils.getPlayerName(UUID.fromString(database.getItemCreator(itemId)));
+                        
+                        // Perform transaction
                         Simpleshop.getInstance().buyItemFromShopCore(player.getCommandSource(), itemId, amount);
+                        
+                        // Send notification to item owner
+                        if (creatorName != null && !database.isAdminShop(shopName)) {
+                            String notificationMsg = I18n.translate("notification.item.bought", 
+                                player.getName().getString(), amount, shopName).getString();
+                            Simpleshop.getInstance().getNotificationManager().notifyPlayer(creatorName, notificationMsg);
+                        }
                     }
                 } catch (IllegalStateException e) {
                     player.sendMessage(Text.literal(e.getMessage()).formatted(Formatting.RED), false);
@@ -269,7 +280,18 @@ public class ShopGUI {
                     String amountStr = this.getLine(0).getString().trim();
                     int amount = Integer.parseInt(amountStr);
                     if (amount > 0) {
+                        // Get item creator before transaction
+                        String creatorName = PlayerUtils.getPlayerName(UUID.fromString(database.getItemCreator(itemId)));
+                        
+                        // Perform transaction
                         Simpleshop.getInstance().sellItemToShopCore(player.getCommandSource(), itemId, amount);
+                        
+                        // Send notification to item owner
+                        if (creatorName != null && !database.isAdminShop(shopName)) {
+                            String notificationMsg = I18n.translate("notification.item.sold", 
+                                player.getName().getString(), amount, shopName).getString();
+                            Simpleshop.getInstance().getNotificationManager().notifyPlayer(creatorName, notificationMsg);
+                        }
                     }
                 } catch (IllegalStateException e) {
                     player.sendMessage(Text.literal(e.getMessage()).formatted(Formatting.RED), false);
@@ -978,6 +1000,15 @@ public class ShopGUI {
             }
 
             player.sendMessage(I18n.translate("item.move.success", fromShopName, toShopName).formatted(Formatting.GREEN), false);
+
+            // Notify item owner about the move
+            String creatorName = PlayerUtils.getPlayerName(UUID.fromString(database.getItemCreator(itemId)));
+            if (creatorName != null) {
+                String notificationMsg = I18n.translate("notification.item.moved", 
+                    player.getName().getString(), fromShopName, toShopName).getString();
+                Simpleshop.getInstance().getNotificationManager().notifyPlayer(creatorName, notificationMsg);
+            }
+
             openShopItems(player, toShopName, 0);
         } catch (SQLException e) {
             e.printStackTrace();

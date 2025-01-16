@@ -3,6 +3,8 @@ package com.iruanp.simpleshop;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
@@ -11,6 +13,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.world.GameRules;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,11 +49,20 @@ public class Simpleshop implements ModInitializer {
 
     public static RegistryOps<JsonElement> jsonops;
 
+    private NotificationManager notificationManager;
+
     @Override
     public void onInitialize() {
         instance = this;
         ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
         CommandRegistrationCallback.EVENT.register(this::registerCommands);
+
+        // Register player join event
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            if (notificationManager != null) {
+                notificationManager.checkNotifications(handler.player);
+            }
+        });
     }
 
     public static Simpleshop getInstance() {
@@ -70,6 +82,9 @@ public class Simpleshop implements ModInitializer {
         shopDatabase = new ShopDatabase();
         shopGUI = new ShopGUI(shopDatabase);
         
+        // Initialize NotificationManager after database is ready
+        notificationManager = new NotificationManager(shopDatabase, server);
+        
         var providers = CommonEconomy.providers();
         if (providers.isEmpty()) {
             LOGGER.error(I18n.translate("error.economy_provider").getString());
@@ -83,8 +98,6 @@ public class Simpleshop implements ModInitializer {
             return;
         }
         defaultCurrency = currencies.iterator().next();
-        
-        shopDatabase.normalizeItemCounts();
     }
 
     private void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher,
@@ -313,5 +326,9 @@ public class Simpleshop implements ModInitializer {
         }
 
         source.sendFeedback(() -> I18n.translate("item.sell.success", amount, formatCurrency(totalCost)), false);
+    }
+
+    public NotificationManager getNotificationManager() {
+        return notificationManager;
     }
 }

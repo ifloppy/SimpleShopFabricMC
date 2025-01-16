@@ -128,5 +128,9 @@
   "gui.item.move.click": "Click to move item here",
   "error.no_other_shops": "No other user shops available",
   "item.move.success": "Item moved from %s to %s",
-  "error.move_failed": "Failed to move item"
+  "error.move_failed": "Failed to move item",
+
+  "notification.item.bought": "%s bought %d items from your shop %s",
+  "notification.item.sold": "%s sold %d items to your shop %s",
+  "notification.item.moved": "%s moved your item from shop %s to %s"
 }
