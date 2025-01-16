@@ -620,21 +620,31 @@ public class ShopGUI {
                                     .build());
                         }
 
-                        // Stock button for creator
+                        // Stock management buttons for creator
                         if (isCreator) {
-                            gui.setSlot(12, new GuiElementBuilder(Items.CHEST)
-                                    .setName(Text.literal("Manage Stock").formatted(Formatting.GOLD))
-                                    .addLoreLine(Text.literal("Left-Click: Add stock").formatted(Formatting.GRAY))
-                                    .addLoreLine(Text.literal("Right-Click: Take items").formatted(Formatting.GRAY))
+                            // Add stock button
+                            gui.setSlot(12, new GuiElementBuilder(Items.HOPPER)
+                                    .setName(Text.literal("Add Stock").formatted(Formatting.GREEN))
+                                    .addLoreLine(Text.literal("Click to add items from inventory").formatted(Formatting.GRAY))
                                     .setCallback((index, type, action) -> {
-                                        if (type.isLeft) {
-                                            openQuickStockDialog(player, itemId, shopName);
-                                        } else if (type.isRight && quantity > 0) {
+                                        openQuickStockDialog(player, itemId, shopName);
+                                    })
+                                    .build());
+
+                            // Withdraw stock button
+                            gui.setSlot(13, new GuiElementBuilder(Items.CHEST_MINECART)
+                                    .setName(Text.literal("Withdraw Stock").formatted(Formatting.GOLD))
+                                    .addLoreLine(Text.literal("Click to withdraw items").formatted(Formatting.GRAY))
+                                    .addLoreLine(Text.literal("Current stock: " + quantity).formatted(Formatting.AQUA))
+                                    .setCallback((index, type, action) -> {
+                                        if (quantity > 0) {
                                             openQuickTakeDialog(player, itemId, shopName);
+                                        } else {
+                                            player.sendMessage(Text.literal("No items in stock to withdraw!").formatted(Formatting.RED), false);
                                         }
                                     })
                                     .build());
-                            }
+                        }
                     }
 
                     // Back button
@@ -689,8 +699,16 @@ public class ShopGUI {
                     if (amount > 0) {
                         int currentStock = database.getItemQuantity(itemId);
                         if (amount <= currentStock) {
-                            database.removeStockFromItem(itemId, amount);
-                            player.sendMessage(Text.literal("Took " + amount + " items from stock").formatted(Formatting.GREEN), false);
+                            ItemStack itemStack = database.getItemStack(itemId);
+                            if (itemStack != null) {
+                                itemStack.setCount(amount);
+                                if (player.getInventory().insertStack(itemStack)) {
+                                    database.removeStockFromItem(itemId, amount);
+                                    player.sendMessage(Text.literal("Withdrew " + amount + " items from stock").formatted(Formatting.GREEN), false);
+                                } else {
+                                    player.sendMessage(Text.literal("Not enough inventory space!").formatted(Formatting.RED), false);
+                                }
+                            }
                         } else {
                             player.sendMessage(Text.literal("Not enough items in stock!").formatted(Formatting.RED), false);
                         }
@@ -702,7 +720,7 @@ public class ShopGUI {
             }
         };
         signGui.setLine(0, Text.literal(""));
-        signGui.setLine(1, Text.literal("Enter amount to take"));
+        signGui.setLine(1, Text.literal("Enter amount to withdraw"));
         signGui.setLine(2, Text.literal("from stock"));
         signGui.open();
     }
