@@ -44,7 +44,7 @@ public class ShopGUI {
             page = maxPages - 1;
 
         SimpleGui gui = new SimpleGui(ScreenHandlerType.GENERIC_9X6, player, false);
-        gui.setTitle(Text.literal("Shop List - Page " + (page + 1) + "/" + maxPages));
+        gui.setTitle(I18n.translate("gui.shop.title", page + 1, maxPages));
 
         int startIndex = page * SLOTS_PER_PAGE;
         int endIndex = Math.min(startIndex + SLOTS_PER_PAGE, shops.size());
@@ -61,22 +61,24 @@ public class ShopGUI {
             GuiElementBuilder element = new GuiElementBuilder()
                     .setItem(shopItemStack.getItem())
                     .setName(Text.literal(shop.name))
-                    .addLoreLine(Text.literal("Type: " + (shop.isAdminShop ? "Admin Shop" : "Player Shop"))
+                    .addLoreLine(Text.literal(I18n.translate("gui.shop.type", shop.isAdminShop ? 
+                            I18n.translate("gui.shop.type.admin").getString() : 
+                            I18n.translate("gui.shop.type.player").getString()).getString())
                             .formatted(Formatting.GRAY));
 
             if (!shop.description.isEmpty()) {
                 element.addLoreLine(Text.empty());
-                element.addLoreLine(Text.literal("Description:").formatted(Formatting.YELLOW));
+                element.addLoreLine(I18n.translate("gui.shop.description").formatted(Formatting.YELLOW));
                 element.addLoreLine(Text.literal(shop.description).formatted(Formatting.GRAY));
             }
 
             element.addLoreLine(Text.empty());
-            element.addLoreLine(Text.literal("Click to view items").formatted(Formatting.GREEN));
-            element.addLoreLine(Text.literal("Shift-Click to edit description").formatted(Formatting.YELLOW));
+            element.addLoreLine(I18n.translate("gui.shop.click_view").formatted(Formatting.GREEN));
+            element.addLoreLine(I18n.translate("gui.shop.shift_edit").formatted(Formatting.YELLOW));
 
             if (Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2)) {
                 element.addLoreLine(Text.empty());
-                element.addLoreLine(Text.literal("Right-Click to edit shop settings").formatted(Formatting.GOLD));
+                element.addLoreLine(I18n.translate("gui.shop.right_edit").formatted(Formatting.GOLD));
             }
 
             element.setCallback((index, type, action) -> {
@@ -84,7 +86,7 @@ public class ShopGUI {
                     if (Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2)) {
                         openDescriptionEditor(player, shop.name);
                     } else {
-                        player.sendMessage(Text.literal("You don't have permission to edit shop description!").formatted(Formatting.RED), false);
+                        player.sendMessage(I18n.translate("item.no_permission", "edit").formatted(Formatting.RED), false);
                     }
                 } else if (type.isRight && Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2)) {
                     openShopSettings(player, shop.name);
@@ -100,9 +102,9 @@ public class ShopGUI {
         if (Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2)) {
             // Create normal shop button
             gui.setSlot(SLOTS_PER_PAGE + 3, new GuiElementBuilder(Items.CHEST)
-                    .setName(Text.literal("Create Normal Shop").formatted(Formatting.GREEN))
-                    .addLoreLine(Text.literal("Click to create a new player shop").formatted(Formatting.GRAY))
-                    .addLoreLine(Text.literal("Hold an item to use as shop icon").formatted(Formatting.YELLOW))
+                    .setName(I18n.translate("gui.shop.create_normal").formatted(Formatting.GREEN))
+                    .addLoreLine(I18n.translate("gui.shop.create_normal.desc").formatted(Formatting.GRAY))
+                    .addLoreLine(I18n.translate("gui.shop.hold_item").formatted(Formatting.YELLOW))
                     .setCallback((index, type, action) -> {
                         openCreateShopDialog(player, false);
                     })
@@ -110,9 +112,9 @@ public class ShopGUI {
 
             // Create admin shop button
             gui.setSlot(SLOTS_PER_PAGE + 5, new GuiElementBuilder(Items.ENDER_CHEST)
-                    .setName(Text.literal("Create Admin Shop").formatted(Formatting.GOLD))
-                    .addLoreLine(Text.literal("Click to create a new admin shop").formatted(Formatting.GRAY))
-                    .addLoreLine(Text.literal("Hold an item to use as shop icon").formatted(Formatting.YELLOW))
+                    .setName(I18n.translate("gui.shop.create_admin").formatted(Formatting.GOLD))
+                    .addLoreLine(I18n.translate("gui.shop.create_admin.desc").formatted(Formatting.GRAY))
+                    .addLoreLine(I18n.translate("gui.shop.hold_item").formatted(Formatting.YELLOW))
                     .setCallback((index, type, action) -> {
                         openCreateShopDialog(player, true);
                     })
@@ -144,8 +146,8 @@ public class ShopGUI {
                 openShopList(player, 0);
             }
         };
-        signGui.setLine(0, Text.literal("Enter description"));
-        signGui.setLine(1, Text.literal("on these lines"));
+        signGui.setLine(0, I18n.translate("dialog.enter_shop_name"));
+        signGui.setLine(1, I18n.translate("dialog.enter_shop_name.first"));
         signGui.open();
     }
 
@@ -160,7 +162,7 @@ public class ShopGUI {
             page = maxPages - 1;
 
         SimpleGui gui = new SimpleGui(ScreenHandlerType.GENERIC_9X6, player, false);
-        gui.setTitle(Text.literal(shopName + " - Page " + (page + 1) + "/" + maxPages));
+        gui.setTitle(I18n.translate("gui.item.details", shopName + " - Page " + (page + 1) + "/" + maxPages));
 
         int startIndex = page * SLOTS_PER_PAGE;
         int endIndex = Math.min(startIndex + SLOTS_PER_PAGE, items.size());
@@ -173,17 +175,18 @@ public class ShopGUI {
             element.addLoreLine(Text.empty());
 
             if (item.isSelling) {
-                element.addLoreLine(Text.literal("Buy Price: " + Simpleshop.getInstance().formatPrice(item.price))
+                element.addLoreLine(I18n.translate("item.price.buy", Simpleshop.getInstance().formatPrice(item.price))
                         .formatted(Formatting.GREEN));
-                element.addLoreLine(Text.literal("Stock: " + item.quantity).formatted(Formatting.AQUA));
+                element.addLoreLine(I18n.translate("item.stock.quantity", item.quantity)
+                        .formatted(Formatting.AQUA));
             } else {
-                element.addLoreLine(Text.literal("Sell Price: " + Simpleshop.getInstance().formatPrice(item.price))
+                element.addLoreLine(I18n.translate("item.price.sell", Simpleshop.getInstance().formatPrice(item.price))
                         .formatted(Formatting.YELLOW));
             }
 
             element.addLoreLine(Text.empty());
-            element.addLoreLine(Text.literal("Left-Click to view details").formatted(Formatting.GRAY));
-            element.addLoreLine(Text.literal("Right-Click to quick buy/sell").formatted(Formatting.GOLD));
+            element.addLoreLine(I18n.translate("gui.item.click_details").formatted(Formatting.GRAY));
+            element.addLoreLine(I18n.translate("gui.item.click_quick_action").formatted(Formatting.GOLD));
 
             final int itemId = item.id;
             element.setCallback((index, type, action) -> {
@@ -206,8 +209,8 @@ public class ShopGUI {
         if ((!isAdminShop && Permissions.check(player.getCommandSource(), "Simpleshop.Use", 0)) || 
             (isAdminShop && Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2))) {
             gui.setSlot(SLOTS_PER_PAGE + 0, new GuiElementBuilder(Items.NETHER_STAR)
-                    .setName(Text.literal("Create New Item").formatted(Formatting.GREEN))
-                    .addLoreLine(Text.literal("Click to add new item").formatted(Formatting.GRAY))
+                    .setName(I18n.translate("gui.item.create_new").formatted(Formatting.GREEN))
+                    .addLoreLine(I18n.translate("gui.item.create_new.desc").formatted(Formatting.GRAY))
                     .setCallback((index, type, action) -> {
                         openCreateItemDialog(player, shopName);
                     })
@@ -217,7 +220,7 @@ public class ShopGUI {
         // Back button
         gui.setSlot(SLOTS_PER_PAGE + 4, new GuiElementBuilder()
                 .setItem(Items.BARRIER)
-                .setName(Text.literal("Back to Shops").formatted(Formatting.RED))
+                .setName(I18n.translate("gui.shop.back").formatted(Formatting.RED))
                 .setCallback((index, type, action) -> openShopList(player, 0))
                 .build());
 
@@ -238,14 +241,14 @@ public class ShopGUI {
                 } catch (IllegalStateException e) {
                     player.sendMessage(Text.literal(e.getMessage()).formatted(Formatting.RED), false);
                 } catch (NumberFormatException e) {
-                    player.sendMessage(Text.literal("Invalid amount!").formatted(Formatting.RED), false);
+                    player.sendMessage(I18n.translate("error.invalid_amount").formatted(Formatting.RED), false);
                 }
                 openItemDetails(player, shopName, itemId);
             }
         };
         signGui.setLine(0, Text.literal(""));
-        signGui.setLine(1, Text.literal("Enter amount to buy"));
-        signGui.setLine(2, Text.literal("on the first line"));
+        signGui.setLine(1, I18n.translate("dialog.enter_amount.buy"));
+        signGui.setLine(2, I18n.translate("dialog.enter_shop_name.first"));
         signGui.open();
     }
 
@@ -262,20 +265,20 @@ public class ShopGUI {
                 } catch (IllegalStateException e) {
                     player.sendMessage(Text.literal(e.getMessage()).formatted(Formatting.RED), false);
                 } catch (NumberFormatException e) {
-                    player.sendMessage(Text.literal("Invalid amount!").formatted(Formatting.RED), false);
+                    player.sendMessage(I18n.translate("error.invalid_amount").formatted(Formatting.RED), false);
                 }
                 openItemDetails(player, shopName, itemId);
             }
         };
         signGui.setLine(0, Text.literal(""));
-        signGui.setLine(1, Text.literal("Enter amount to sell"));
-        signGui.setLine(2, Text.literal("on the first line"));
+        signGui.setLine(1, I18n.translate("dialog.enter_amount.sell"));
+        signGui.setLine(2, I18n.translate("dialog.enter_shop_name.first"));
         signGui.open();
     }
 
     private void openCreateItemDialog(ServerPlayerEntity player, String shopName) {
         SimpleGui gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-        gui.setTitle(Text.literal("Create New Item"));
+        gui.setTitle(I18n.translate("gui.item.create_new"));
 
         // Display current held item
         ItemStack heldItem = player.getMainHandStack();
@@ -283,16 +286,18 @@ public class ShopGUI {
         
         // Item slot
         gui.setSlot(4, new GuiElementBuilder(hasItem ? heldItem.getItem() : Items.BARRIER)
-                .setName(Text.literal(hasItem ? "Current Item" : "No Item Selected").formatted(hasItem ? Formatting.GREEN : Formatting.RED))
-                .addLoreLine(Text.literal(hasItem ? "Hold a different item to change" : "Hold an item in your main hand").formatted(Formatting.GRAY))
+                .setName(I18n.translate(hasItem ? "gui.item.current" : "gui.item.no_item")
+                        .formatted(hasItem ? Formatting.GREEN : Formatting.RED))
+                .addLoreLine(I18n.translate(hasItem ? "gui.item.hold_change" : "gui.shop.hold_item")
+                        .formatted(Formatting.GRAY))
                 .build());
 
         if (hasItem) {
             // Buy mode button (default)
             gui.setSlot(11, new GuiElementBuilder(Items.EMERALD)
-                    .setName(Text.literal("Create Buy Offer").formatted(Formatting.GREEN))
-                    .addLoreLine(Text.literal("Players can buy this item").formatted(Formatting.GRAY))
-                    .addLoreLine(Text.literal("Click to set buy price").formatted(Formatting.YELLOW))
+                    .setName(I18n.translate("gui.item.create_buy").formatted(Formatting.GREEN))
+                    .addLoreLine(I18n.translate("gui.item.create_buy.desc").formatted(Formatting.GRAY))
+                    .addLoreLine(I18n.translate("gui.item.set_price").formatted(Formatting.YELLOW))
                     .setCallback((index, type, action) -> {
                         createNewShopItem(player, shopName, heldItem, true);
                     })
@@ -300,9 +305,9 @@ public class ShopGUI {
 
             // Sell mode button
             gui.setSlot(15, new GuiElementBuilder(Items.GOLD_INGOT)
-                    .setName(Text.literal("Create Sell Offer").formatted(Formatting.YELLOW))
-                    .addLoreLine(Text.literal("Players can sell this item").formatted(Formatting.GRAY))
-                    .addLoreLine(Text.literal("Click to set sell price").formatted(Formatting.YELLOW))
+                    .setName(I18n.translate("gui.item.create_sell").formatted(Formatting.YELLOW))
+                    .addLoreLine(I18n.translate("gui.item.create_sell.desc").formatted(Formatting.GRAY))
+                    .addLoreLine(I18n.translate("gui.item.set_price").formatted(Formatting.YELLOW))
                     .setCallback((index, type, action) -> {
                         createNewShopItem(player, shopName, heldItem, false);
                     })
@@ -311,7 +316,7 @@ public class ShopGUI {
 
         // Back button
         gui.setSlot(22, new GuiElementBuilder(Items.BARRIER)
-                .setName(Text.literal("Back").formatted(Formatting.RED))
+                .setName(I18n.translate("gui.shop.back").formatted(Formatting.RED))
                 .setCallback((index, type, action) -> openShopItems(player, shopName, 0))
                 .build());
 
@@ -343,24 +348,24 @@ public class ShopGUI {
                         
                         int shopId = database.getShopIdByName(shopName);
                         database.addItem(shopId, serializedItem.toString(), 0, isSelling, price, player.getUuidAsString());
-                        player.sendMessage(Text.literal("Item added to shop!").formatted(Formatting.GREEN), false);
+                        player.sendMessage(I18n.translate("item.create.success").formatted(Formatting.GREEN), false);
                         openShopItems(player, shopName, 0);
                     } else {
-                        player.sendMessage(Text.literal("Price must be greater than 0!").formatted(Formatting.RED), false);
+                        player.sendMessage(I18n.translate("error.price.zero").formatted(Formatting.RED), false);
                         openCreateItemDialog(player, shopName);
                     }
                 } catch (NumberFormatException e) {
-                    player.sendMessage(Text.literal("Invalid price format!").formatted(Formatting.RED), false);
+                    player.sendMessage(I18n.translate("error.price.invalid").formatted(Formatting.RED), false);
                     openCreateItemDialog(player, shopName);
                 } catch (Exception e) {
-                    player.sendMessage(Text.literal("Failed to create item: " + e.getMessage()).formatted(Formatting.RED), false);
+                    player.sendMessage(I18n.translate("error.item.create", e.getMessage()).formatted(Formatting.RED), false);
                     openCreateItemDialog(player, shopName);
                 }
             }
         };
         signGui.setLine(0, Text.literal(""));
-        signGui.setLine(1, Text.literal("Enter price"));
-        signGui.setLine(2, Text.literal("Example: 10.5"));
+        signGui.setLine(1, I18n.translate("dialog.enter_price"));
+        signGui.setLine(2, I18n.translate("dialog.enter_price.example"));
         signGui.open();
     }
 
@@ -382,14 +387,14 @@ public class ShopGUI {
                         }
                     }
                 } catch (NumberFormatException e) {
-                    player.sendMessage(Text.literal("Invalid price!").formatted(Formatting.RED), false);
+                    player.sendMessage(I18n.translate("error.price.invalid").formatted(Formatting.RED), false);
                     openShopItems(player, shopName, 0);
                 }
             }
         };
         signGui.setLine(0, Text.literal(""));
-        signGui.setLine(1, Text.literal("Enter price"));
-        signGui.setLine(2, Text.literal("Example: 10.5"));
+        signGui.setLine(1, I18n.translate("dialog.enter_price"));
+        signGui.setLine(2, I18n.translate("dialog.enter_price.example"));
         signGui.open();
     }
 
@@ -404,7 +409,7 @@ public class ShopGUI {
 
         // Confirm button
         gui.setSlot(11, new GuiElementBuilder(Items.LIME_CONCRETE)
-                .setName(Text.literal("Confirm").formatted(Formatting.GREEN))
+                .setName(I18n.translate("dialog.confirm").formatted(Formatting.GREEN))
                 .setCallback((index, type, action) -> {
                     onConfirm.run();
                 })
@@ -412,7 +417,7 @@ public class ShopGUI {
 
         // Cancel button
         gui.setSlot(15, new GuiElementBuilder(Items.RED_CONCRETE)
-                .setName(Text.literal("Cancel").formatted(Formatting.RED))
+                .setName(I18n.translate("dialog.cancel").formatted(Formatting.RED))
                 .setCallback((index, type, action) -> {
                     onCancel.run();
                 })
@@ -431,7 +436,7 @@ public class ShopGUI {
             final int currentPage = page;
             gui.setSlot(SLOTS_PER_PAGE + 3, new GuiElementBuilder()
                     .setItem(Items.ARROW)
-                    .setName(Text.literal("Previous Page").formatted(Formatting.YELLOW))
+                    .setName(I18n.translate("gui.shop.prev_page").formatted(Formatting.YELLOW))
                     .setCallback((index, type, action) -> {
                         if (shopName != null) {
                             openShopItems(player, shopName, currentPage - 1);
@@ -446,7 +451,7 @@ public class ShopGUI {
             final int currentPage = page;
             gui.setSlot(SLOTS_PER_PAGE + 5, new GuiElementBuilder()
                     .setItem(Items.ARROW)
-                    .setName(Text.literal("Next Page").formatted(Formatting.YELLOW))
+                    .setName(I18n.translate("gui.shop.next_page").formatted(Formatting.YELLOW))
                     .setCallback((index, type, action) -> {
                         if (shopName != null) {
                             openShopItems(player, shopName, currentPage + 1);
@@ -535,31 +540,29 @@ public class ShopGUI {
                     // Display item
                     GuiElementBuilder itemElement = new GuiElementBuilder(itemStack.copy())
                             .addLoreLine(Text.empty())
-                            .addLoreLine(Text.literal("Quantity: " + quantity).formatted(Formatting.AQUA))
-                            .addLoreLine(Text
-                                    .literal(isSelling
-                                            ? "Buy Price: " + Simpleshop.getInstance().formatPrice(price)
-                                            : "Sell Price: " + Simpleshop.getInstance().formatPrice(price))
+                            .addLoreLine(I18n.translate("gui.item.quantity", quantity).formatted(Formatting.AQUA))
+                            .addLoreLine(I18n.translate(isSelling ? "item.price.buy" : "item.price.sell", 
+                                    Simpleshop.getInstance().formatPrice(price))
                                     .formatted(isSelling ? Formatting.GREEN : Formatting.YELLOW))
                             .addLoreLine(Text.empty())
-                            .addLoreLine(Text.literal("Creator: " + creator).formatted(Formatting.GRAY));
+                            .addLoreLine(I18n.translate("gui.item.creator", creator).formatted(Formatting.GRAY));
 
                     gui.setSlot(4, itemElement.build());
 
                     // Quick action buttons
                     if (isSelling) {
                         gui.setSlot(11, new GuiElementBuilder(Items.EMERALD)
-                                .setName(Text.literal("Buy Items").formatted(Formatting.GREEN))
-                                .addLoreLine(Text.literal("Click to specify amount").formatted(Formatting.GRAY))
+                                .setName(I18n.translate("gui.item.buy").formatted(Formatting.GREEN))
+                                .addLoreLine(I18n.translate("gui.item.buy.desc").formatted(Formatting.GRAY))
                                 .setCallback((index, type, action) -> {
                                     openQuickBuyDialog(player, itemId, shopName);
                                 })
                                 .build());
                     } else {
                         gui.setSlot(11, new GuiElementBuilder(Items.GOLD_INGOT)
-                                .setName(Text.literal("Quick Sell").formatted(Formatting.YELLOW))
-                                .addLoreLine(Text.literal("Left-Click: Sell 1").formatted(Formatting.GRAY))
-                                .addLoreLine(Text.literal("Right-Click: Custom amount").formatted(Formatting.GRAY))
+                                .setName(I18n.translate("gui.item.quick_sell").formatted(Formatting.YELLOW))
+                                .addLoreLine(I18n.translate("gui.item.quick_sell.left").formatted(Formatting.GRAY))
+                                .addLoreLine(I18n.translate("gui.item.quick_sell.right").formatted(Formatting.GRAY))
                                 .setCallback((index, type, action) -> {
                                     if (type.isRight) {
                                         openQuickSellDialog(player, itemId, shopName);
@@ -579,8 +582,8 @@ public class ShopGUI {
                     if (isCreator || isAdmin) {
                         // Edit price button
                         gui.setSlot(13, new GuiElementBuilder(Items.GOLD_NUGGET)
-                                .setName(Text.literal("Edit Price").formatted(Formatting.GOLD))
-                                .addLoreLine(Text.literal("Click to change price").formatted(Formatting.GRAY))
+                                .setName(I18n.translate("gui.item.edit_price").formatted(Formatting.GOLD))
+                                .addLoreLine(I18n.translate("gui.item.edit_price.desc").formatted(Formatting.GRAY))
                                 .setCallback((index, type, action) -> {
                                     openPriceDialog(player, itemId, shopName);
                                 })
@@ -588,12 +591,15 @@ public class ShopGUI {
 
                         // Toggle buy/sell mode
                         gui.setSlot(14, new GuiElementBuilder(isSelling ? Items.HOPPER : Items.CHEST)
-                                .setName(Text.literal("Toggle Mode").formatted(Formatting.AQUA))
-                                .addLoreLine(Text.literal("Current: " + (isSelling ? "Selling" : "Buying")).formatted(Formatting.GRAY))
+                                .setName(I18n.translate("gui.item.toggle_mode").formatted(Formatting.AQUA))
+                                .addLoreLine(I18n.translate("gui.item.toggle_mode.current", 
+                                        I18n.translate(isSelling ? "gui.item.toggle_mode.selling" : "gui.item.toggle_mode.buying").getString())
+                                        .formatted(Formatting.GRAY))
                                 .setCallback((index, type, action) -> {
                                     openConfirmationDialog(player,
-                                            "Toggle Mode",
-                                            "Change to " + (isSelling ? "Buying" : "Selling") + " mode?",
+                                            I18n.translate("dialog.toggle_mode.title").getString(),
+                                            I18n.translate("dialog.toggle_mode.message", 
+                                                    I18n.translate(isSelling ? "gui.item.toggle_mode.buying" : "gui.item.toggle_mode.selling").getString()).getString(),
                                             () -> {
                                                 database.toggleItemMode(itemId);
                                                 openItemDetails(player, shopName, itemId);
@@ -605,15 +611,15 @@ public class ShopGUI {
                         // Remove item button (only if quantity is 0)
                         if (quantity == 0) {
                             gui.setSlot(15, new GuiElementBuilder(Items.BARRIER)
-                                    .setName(Text.literal("Remove Item").formatted(Formatting.RED))
-                                    .addLoreLine(Text.literal("Click to remove").formatted(Formatting.GRAY))
+                                    .setName(I18n.translate("gui.item.remove").formatted(Formatting.RED))
+                                    .addLoreLine(I18n.translate("gui.item.remove.desc").formatted(Formatting.GRAY))
                                     .setCallback((index, type, action) -> {
                                         openConfirmationDialog(player,
-                                                "Remove Item",
-                                                "Are you sure you want to remove this item?",
+                                                I18n.translate("dialog.remove_item.title").getString(),
+                                                I18n.translate("dialog.remove_item.message").getString(),
                                                 () -> {
-                                        database.removeItem(itemId);
-                                        openShopItems(player, shopName, 0);
+                                                    database.removeItem(itemId);
+                                                    openShopItems(player, shopName, 0);
                                                 },
                                                 () -> openItemDetails(player, shopName, itemId));
                                     })
@@ -624,8 +630,8 @@ public class ShopGUI {
                         if (isCreator) {
                             // Add stock button
                             gui.setSlot(12, new GuiElementBuilder(Items.HOPPER)
-                                    .setName(Text.literal("Add Stock").formatted(Formatting.GREEN))
-                                    .addLoreLine(Text.literal("Click to add items from inventory").formatted(Formatting.GRAY))
+                                    .setName(I18n.translate("gui.item.add_stock").formatted(Formatting.GREEN))
+                                    .addLoreLine(I18n.translate("gui.item.add_stock.desc").formatted(Formatting.GRAY))
                                     .setCallback((index, type, action) -> {
                                         openQuickStockDialog(player, itemId, shopName);
                                     })
@@ -633,14 +639,14 @@ public class ShopGUI {
 
                             // Withdraw stock button
                             gui.setSlot(13, new GuiElementBuilder(Items.CHEST_MINECART)
-                                    .setName(Text.literal("Withdraw Stock").formatted(Formatting.GOLD))
-                                    .addLoreLine(Text.literal("Click to withdraw items").formatted(Formatting.GRAY))
-                                    .addLoreLine(Text.literal("Current stock: " + quantity).formatted(Formatting.AQUA))
+                                    .setName(I18n.translate("gui.item.withdraw").formatted(Formatting.GOLD))
+                                    .addLoreLine(I18n.translate("gui.item.withdraw.desc").formatted(Formatting.GRAY))
+                                    .addLoreLine(I18n.translate("item.stock.quantity", quantity).formatted(Formatting.AQUA))
                                     .setCallback((index, type, action) -> {
                                         if (quantity > 0) {
                                             openQuickTakeDialog(player, itemId, shopName);
                                         } else {
-                                            player.sendMessage(Text.literal("No items in stock to withdraw!").formatted(Formatting.RED), false);
+                                            player.sendMessage(I18n.translate("gui.item.no_stock").formatted(Formatting.RED), false);
                                         }
                                     })
                                     .build());
@@ -649,17 +655,17 @@ public class ShopGUI {
 
                     // Back button
                     gui.setSlot(22, new GuiElementBuilder(Items.ARROW)
-                            .setName(Text.literal("Back").formatted(Formatting.RED))
+                            .setName(I18n.translate("gui.shop.back").formatted(Formatting.RED))
                             .setCallback((index, type, action) -> openShopItems(player, shopName, 0))
                             .build());
 
-                    gui.setTitle(Text.literal("Item Details - " + shopName));
+                    gui.setTitle(I18n.translate("gui.item.details", "Item Details - " + shopName));
                     gui.open();
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            player.sendMessage(Text.literal("Error loading item details").formatted(Formatting.RED), false);
+            player.sendMessage(I18n.translate("error.update_failed").formatted(Formatting.RED), false);
         }
     }
 
@@ -678,14 +684,14 @@ public class ShopGUI {
                         }
                     }
                 } catch (NumberFormatException e) {
-                    player.sendMessage(Text.literal("Invalid amount!").formatted(Formatting.RED), false);
+                    player.sendMessage(I18n.translate("error.invalid_amount").formatted(Formatting.RED), false);
                 }
                 openItemDetails(player, shopName, itemId);
             }
         };
         signGui.setLine(0, Text.literal(""));
-        signGui.setLine(1, Text.literal("Enter amount to add"));
-        signGui.setLine(2, Text.literal("from your inventory"));
+        signGui.setLine(1, I18n.translate("dialog.enter_amount.add"));
+        signGui.setLine(2, I18n.translate("dialog.enter_amount.from_inv"));
         signGui.open();
     }
 
@@ -704,35 +710,35 @@ public class ShopGUI {
                                 itemStack.setCount(amount);
                                 if (player.getInventory().insertStack(itemStack)) {
                                     database.removeStockFromItem(itemId, amount);
-                                    player.sendMessage(Text.literal("Withdrew " + amount + " items from stock").formatted(Formatting.GREEN), false);
+                                    player.sendMessage(I18n.translate("item.take.success", amount).formatted(Formatting.GREEN), false);
                                 } else {
-                                    player.sendMessage(Text.literal("Not enough inventory space!").formatted(Formatting.RED), false);
+                                    player.sendMessage(I18n.translate("error.insufficient_space").formatted(Formatting.RED), false);
                                 }
                             }
                         } else {
-                            player.sendMessage(Text.literal("Not enough items in stock!").formatted(Formatting.RED), false);
+                            player.sendMessage(I18n.translate("error.insufficient_stock", currentStock).formatted(Formatting.RED), false);
                         }
                     }
                 } catch (NumberFormatException e) {
-                    player.sendMessage(Text.literal("Invalid amount!").formatted(Formatting.RED), false);
+                    player.sendMessage(I18n.translate("error.invalid_amount").formatted(Formatting.RED), false);
                 }
                 openItemDetails(player, shopName, itemId);
             }
         };
         signGui.setLine(0, Text.literal(""));
-        signGui.setLine(1, Text.literal("Enter amount to withdraw"));
-        signGui.setLine(2, Text.literal("from stock"));
+        signGui.setLine(1, I18n.translate("dialog.enter_amount.withdraw"));
+        signGui.setLine(2, I18n.translate("dialog.enter_amount.from_inv"));
         signGui.open();
     }
 
     private void openShopSettings(ServerPlayerEntity player, String shopName) {
         SimpleGui gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
-        gui.setTitle(Text.literal("Shop Settings - " + shopName));
+        gui.setTitle(I18n.translate("gui.shop.settings", shopName));
 
         // Edit Name button
         gui.setSlot(11, new GuiElementBuilder(Items.NAME_TAG)
-                .setName(Text.literal("Edit Shop Name").formatted(Formatting.YELLOW))
-                .addLoreLine(Text.literal("Click to change shop name").formatted(Formatting.GRAY))
+                .setName(I18n.translate("gui.shop.edit_name").formatted(Formatting.YELLOW))
+                .addLoreLine(I18n.translate("gui.shop.edit_name.desc").formatted(Formatting.GRAY))
                 .setCallback((index, type, action) -> {
                     openShopNameEditor(player, shopName);
                 })
@@ -740,8 +746,8 @@ public class ShopGUI {
 
         // Edit Description button
         gui.setSlot(13, new GuiElementBuilder(Items.WRITABLE_BOOK)
-                .setName(Text.literal("Edit Description").formatted(Formatting.GREEN))
-                .addLoreLine(Text.literal("Click to change description").formatted(Formatting.GRAY))
+                .setName(I18n.translate("gui.shop.edit_desc").formatted(Formatting.GREEN))
+                .addLoreLine(I18n.translate("gui.shop.edit_desc.desc").formatted(Formatting.GRAY))
                 .setCallback((index, type, action) -> {
                     openDescriptionEditor(player, shopName);
                 })
@@ -749,8 +755,8 @@ public class ShopGUI {
 
         // Edit Icon button
         gui.setSlot(15, new GuiElementBuilder(Items.ITEM_FRAME)
-                .setName(Text.literal("Change Shop Icon").formatted(Formatting.AQUA))
-                .addLoreLine(Text.literal("Click to set held item as icon").formatted(Formatting.GRAY))
+                .setName(I18n.translate("gui.shop.edit_icon").formatted(Formatting.AQUA))
+                .addLoreLine(I18n.translate("gui.shop.edit_icon.desc").formatted(Formatting.GRAY))
                 .setCallback((index, type, action) -> {
                     ItemStack heldItem = player.getMainHandStack();
                     if (!heldItem.isEmpty()) {
@@ -759,17 +765,17 @@ public class ShopGUI {
                                 .result()
                                 .orElseThrow();
                         database.updateShopIcon(shopName, serializedItem.toString());
-                        player.sendMessage(Text.literal("Shop icon updated!").formatted(Formatting.GREEN), false);
+                        player.sendMessage(I18n.translate("gui.shop.icon_updated").formatted(Formatting.GREEN), false);
                         openShopList(player, 0);
                     } else {
-                        player.sendMessage(Text.literal("You must hold an item to set as the shop icon!").formatted(Formatting.RED), false);
+                        player.sendMessage(I18n.translate("gui.shop.need_icon").formatted(Formatting.RED), false);
                     }
                 })
                 .build());
 
         // Back button
         gui.setSlot(22, new GuiElementBuilder(Items.BARRIER)
-                .setName(Text.literal("Back").formatted(Formatting.RED))
+                .setName(I18n.translate("gui.shop.back").formatted(Formatting.RED))
                 .setCallback((index, type, action) -> openShopList(player, 0))
                 .build());
 
@@ -784,10 +790,10 @@ public class ShopGUI {
                 if (!newName.isEmpty() && !newName.equals(oldShopName)) {
                     if (!database.shopExists(newName)) {
                         database.updateShopName(oldShopName, newName);
-                        player.sendMessage(Text.literal("Shop name updated!").formatted(Formatting.GREEN), false);
+                        player.sendMessage(I18n.translate("shop.name.updated").formatted(Formatting.GREEN), false);
                         openShopList(player, 0);
                     } else {
-                        player.sendMessage(Text.literal("A shop with that name already exists!").formatted(Formatting.RED), false);
+                        player.sendMessage(I18n.translate("shop.name.exists").formatted(Formatting.RED), false);
                         openShopSettings(player, oldShopName);
                     }
                 } else {
@@ -796,15 +802,15 @@ public class ShopGUI {
             }
         };
         signGui.setLine(0, Text.literal(""));
-        signGui.setLine(1, Text.literal("Enter new shop name"));
-        signGui.setLine(2, Text.literal("on the first line"));
+        signGui.setLine(1, I18n.translate("dialog.enter_shop_name"));
+        signGui.setLine(2, I18n.translate("dialog.enter_shop_name.first"));
         signGui.open();
     }
 
     private void openCreateShopDialog(ServerPlayerEntity player, boolean isAdminShop) {
         ItemStack heldItem = player.getMainHandStack();
         if (heldItem.isEmpty()) {
-            player.sendMessage(Text.literal("You must hold an item to use as the shop icon!").formatted(Formatting.RED), false);
+            player.sendMessage(I18n.translate("shop.create.need_item").formatted(Formatting.RED), false);
             return;
         }
 
@@ -819,11 +825,11 @@ public class ShopGUI {
                                 .result()
                                 .orElseThrow();
                         database.addShop(shopName, serializedItem.toString(), "", isAdminShop);
-                        player.sendMessage(Text.literal((isAdminShop ? "Admin shop" : "Shop") + " created: " + shopName)
+                        player.sendMessage(I18n.translate(isAdminShop ? "shop.create.admin.success" : "shop.create.success", shopName)
                                 .formatted(Formatting.GREEN), false);
                         openShopList(player, 0);
                     } else {
-                        player.sendMessage(Text.literal("A shop with that name already exists!").formatted(Formatting.RED), false);
+                        player.sendMessage(I18n.translate("shop.create.exists", shopName).formatted(Formatting.RED), false);
                         openShopList(player, 0);
                     }
                 } else {
@@ -832,8 +838,8 @@ public class ShopGUI {
             }
         };
         signGui.setLine(0, Text.literal(""));
-        signGui.setLine(1, Text.literal("Enter shop name"));
-        signGui.setLine(2, Text.literal("on the first line"));
+        signGui.setLine(1, I18n.translate("dialog.enter_shop_name"));
+        signGui.setLine(2, I18n.translate("dialog.enter_shop_name.first"));
         signGui.open();
     }
 
