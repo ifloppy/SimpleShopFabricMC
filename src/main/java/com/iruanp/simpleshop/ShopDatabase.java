@@ -401,4 +401,40 @@ class ShopDatabase {
             e.printStackTrace();
         }
     }
+
+    public boolean isShopEmpty(String shopName) {
+        String sql = "SELECT COUNT(*) FROM items i JOIN shops s ON i.shopId = s.id WHERE s.name = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, shopName);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) == 0;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public void deleteShop(String shopName) {
+        // First delete all items in the shop
+        String deleteItemsSql = "DELETE FROM items WHERE shopId IN (SELECT id FROM shops WHERE name = ?)";
+        String deleteShopSql = "DELETE FROM shops WHERE name = ?";
+        
+        try {
+            // Delete items first
+            try (PreparedStatement pstmt = getConnection().prepareStatement(deleteItemsSql)) {
+                pstmt.setString(1, shopName);
+                pstmt.executeUpdate();
+            }
+            
+            // Then delete the shop
+            try (PreparedStatement pstmt = getConnection().prepareStatement(deleteShopSql)) {
+                pstmt.setString(1, shopName);
+                pstmt.executeUpdate();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 }

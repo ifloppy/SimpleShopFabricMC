@@ -24,6 +24,8 @@
   "gui.shop.edit_icon.desc": "Click to set held item as icon",
   "gui.shop.icon_updated": "Shop icon updated!",
   "gui.shop.need_icon": "You must hold an item to set as the shop icon!",
+  "gui.shop.delete": "Delete Shop",
+  "gui.shop.delete.desc": "Click to permanently delete this shop",
 
   "gui.item.details": "%s",
   "gui.item.creator": "Creator: %s",
@@ -80,6 +82,8 @@
   "dialog.remove_item.message": "Are you sure you want to remove this item?",
   "dialog.edit_description": "Enter description",
   "dialog.edit_description.lines": "on these lines",
+  "dialog.delete_shop.title": "Delete Shop",
+  "dialog.delete_shop.message": "Are you sure you want to delete this shop? This action cannot be undone.",
 
   "shop.create.need_item": "You must hold an item in your main hand to create a shop.",
   "shop.create.exists": "Shop already exists: %s",
@@ -89,6 +93,7 @@
   "shop.name.exists": "A shop with that name already exists!",
   "shop.description.updated": "Shop description updated!",
   "shop.remove.success": "Shop removed: %s",
+  "shop.delete.success": "Shop has been deleted successfully!",
 
   "item.not_found": "Item not found with ID: %s",
   "item.no_permission": "You don't have permission to %s this item.",

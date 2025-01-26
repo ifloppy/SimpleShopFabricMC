@@ -24,6 +24,17 @@
     "gui.shop.edit_icon.desc": "点击将手持物品设为图标",
     "gui.shop.icon_updated": "商店图标已更新！",
     "gui.shop.need_icon": "你必须手持一个物品来设置为商店图标！",
+    "gui.shop.delete": "删除商店",
+    "gui.shop.delete.desc": "点击永久删除此商店",
+    "gui.shop.settings": "商店设置",
+    "gui.shop.edit_name": "编辑商店名称",
+    "gui.shop.edit_name.desc": "点击更改商店名称",
+    "gui.shop.edit_desc": "编辑描述",
+    "gui.shop.edit_desc.desc": "点击更改描述",
+    "gui.shop.edit_icon": "更改商店图标",
+    "gui.shop.edit_icon.desc": "点击将手持物品设为图标",
+    "gui.shop.icon_updated": "商店图标已更新！",
+    "gui.shop.need_icon": "你必须手持一个物品来设置为商店图标！",
 
     "gui.item.details": "%s",
     "gui.item.creator": "创建者：%s",
@@ -133,5 +144,8 @@
 
     "notification.item.bought": "%s从你的商店%s购买了%d个物品",
     "notification.item.sold": "%s向你的商店%s出售了%d个物品",
-    "notification.item.moved": "%s将你的物品从商店%s移动到了%s"
+    "notification.item.moved": "%s将你的物品从商店%s移动到了%s",
+    "dialog.delete_shop.title": "删除商店",
+    "dialog.delete_shop.message": "你确定要删除这个商店吗？此操作无法撤销。",
+    "shop.delete.success": "商店已成功删除！"
 }

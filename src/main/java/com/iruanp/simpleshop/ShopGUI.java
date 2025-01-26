@@ -840,6 +840,25 @@ public class ShopGUI {
                 })
                 .build());
 
+        // Add delete button for admins if shop is empty
+        if (Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2) && database.isShopEmpty(shopName)) {
+            gui.setSlot(16, new GuiElementBuilder(Items.BARRIER)
+                    .setName(I18n.translate("gui.shop.delete").formatted(Formatting.RED))
+                    .addLoreLine(I18n.translate("gui.shop.delete.desc").formatted(Formatting.GRAY))
+                    .setCallback((index, type, action) -> {
+                        openConfirmationDialog(player,
+                                I18n.translate("dialog.delete_shop.title").getString(),
+                                I18n.translate("dialog.delete_shop.message").getString(),
+                                () -> {
+                                    database.deleteShop(shopName);
+                                    player.sendMessage(I18n.translate("shop.delete.success").formatted(Formatting.GREEN), false);
+                                    openShopList(player, 0);
+                                },
+                                () -> openShopSettings(player, shopName));
+                    })
+                    .build());
+        }
+
         // Back button
         gui.setSlot(22, new GuiElementBuilder(Items.BARRIER)
                 .setName(I18n.translate("gui.shop.back").formatted(Formatting.RED))
