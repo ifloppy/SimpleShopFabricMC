@@ -40,7 +40,7 @@ public class Simpleshop implements ModInitializer {
     public static String savePath;
     public static ShopDatabase shopDatabase;
     private EconomyProvider economyProvider;
-    private EconomyCurrency defaultCurrency;
+    public EconomyCurrency defaultCurrency;
     private ShopGUI shopGUI;
 
     public MinecraftServer serverInstance;

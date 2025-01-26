@@ -64,6 +64,7 @@
   "dialog.enter_amount": "Enter amount",
   "dialog.enter_amount.buy": "Enter amount to buy",
   "dialog.enter_amount.sell": "Enter amount to sell",
+  "dialog.enter_amount.max": "Max amount: %d",
   "dialog.enter_amount.add": "Enter amount to add",
   "dialog.enter_amount.withdraw": "Enter amount to withdraw",
   "dialog.enter_amount.from_inv": "from your inventory",

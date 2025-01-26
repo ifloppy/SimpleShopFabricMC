@@ -12,10 +12,12 @@ import net.minecraft.util.Formatting;
 import me.lucko.fabric.api.permissions.v0.Permissions;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,6 +25,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.JsonOps;
+import eu.pb4.common.economy.api.CommonEconomy;
+import eu.pb4.common.economy.api.EconomyAccount;
 
 public class ShopGUI {
     private static final int ROWS = 6;
@@ -268,7 +272,17 @@ public class ShopGUI {
         };
         signGui.setLine(0, Text.literal(""));
         signGui.setLine(1, I18n.translate("dialog.enter_amount.buy"));
-        signGui.setLine(2, I18n.translate("dialog.enter_shop_name.first"));
+
+        // Calculate max amount player can buy based on stock and money
+        int stock = database.getItemQuantity(itemId);
+        BigDecimal price = database.getItemPrice(itemId);
+        Collection<EconomyAccount> accounts = CommonEconomy.getAccounts(player, Simpleshop.getInstance().defaultCurrency);
+        EconomyAccount account = accounts.isEmpty() ? null : accounts.iterator().next();
+        BigDecimal balance = account != null ? BigDecimal.valueOf(account.balance()).divide(BigDecimal.valueOf(1000), RoundingMode.FLOOR) : BigDecimal.ZERO;
+        int maxAffordable = price.compareTo(BigDecimal.ZERO) > 0 ? balance.divide(price, RoundingMode.FLOOR).intValue() : Integer.MAX_VALUE;
+        int maxAmount = Math.min(stock, maxAffordable);
+
+        signGui.setLine(2, I18n.translate("dialog.enter_amount.max", maxAmount));
         signGui.open();
     }
 
@@ -303,7 +317,17 @@ public class ShopGUI {
         };
         signGui.setLine(0, Text.literal(""));
         signGui.setLine(1, I18n.translate("dialog.enter_amount.sell"));
-        signGui.setLine(2, I18n.translate("dialog.enter_shop_name.first"));
+
+        // Calculate max amount player can sell based on their inventory
+        ItemStack itemStack = database.getItemStack(itemId);
+        int maxAmount = 0;
+        for (ItemStack stack : player.getInventory().main) {
+            if (!stack.isEmpty() && stack.isOf(itemStack.getItem())) {
+                maxAmount += stack.getCount();
+            }
+        }
+
+        signGui.setLine(2, I18n.translate("dialog.enter_amount.max", maxAmount));
         signGui.open();
     }
 
