@@ -273,16 +273,17 @@ public class ShopGUI {
         signGui.setLine(0, Text.literal(""));
         signGui.setLine(1, I18n.translate("dialog.enter_amount.buy"));
 
-        // Calculate max amount player can buy based on stock and money
-        int stock = database.getItemQuantity(itemId);
+        // Calculate max amount player can buy based on stock, inventory space, and money
         BigDecimal price = database.getItemPrice(itemId);
         Collection<EconomyAccount> accounts = CommonEconomy.getAccounts(player, Simpleshop.getInstance().defaultCurrency);
         EconomyAccount account = accounts.isEmpty() ? null : accounts.iterator().next();
         BigDecimal balance = account != null ? BigDecimal.valueOf(account.balance()).divide(BigDecimal.valueOf(1000), RoundingMode.FLOOR) : BigDecimal.ZERO;
         int maxAffordable = price.compareTo(BigDecimal.ZERO) > 0 ? balance.divide(price, RoundingMode.FLOOR).intValue() : Integer.MAX_VALUE;
-        int maxAmount = Math.min(stock, maxAffordable);
-
-        signGui.setLine(2, I18n.translate("dialog.enter_amount.max", maxAmount));
+        
+        // Get max purchaseable amount considering inventory space and stock
+        int maxPurchaseable = Simpleshop.getInstance().getMaxPurchaseableAmount(player, itemId, maxAffordable);
+        
+        signGui.setLine(2, I18n.translate("dialog.enter_amount.max", maxPurchaseable));
         signGui.open();
     }
 

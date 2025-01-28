@@ -210,28 +210,25 @@ public class Simpleshop implements ModInitializer {
             if (source.getPlayer().getUuidAsString().equals(itemCreator)) {
                 throw new IllegalStateException(I18n.translate("item.buy.own_shop").getString());
             }
-
-            int currentStock = shopDatabase.getItemQuantity(itemId);
-            if (currentStock < amount) {
-                throw new IllegalStateException(I18n.translate("error.insufficient_stock", currentStock).getString());
-            }
         }
-
-        ItemStack shopItem = shopDatabase.getItemStack(itemId);
-        if (shopItem == null) {
-            throw new IllegalStateException(I18n.translate("item.not_found", itemId).getString());
-        }
-
-        ItemStack purchaseStack = shopItem.copy();
-        purchaseStack.setCount(amount);
 
         ServerPlayerEntity player = source.getPlayer();
-        if (!PlayerUtils.hasEnoughInventorySpace(player, purchaseStack)) {
+        int maxPurchaseableAmount = getMaxPurchaseableAmount(player, itemId, amount);
+        
+        if (maxPurchaseableAmount <= 0) {
+            if (!shopDatabase.isAdminShopByItemId(itemId)) {
+                int currentStock = shopDatabase.getItemQuantity(itemId);
+                throw new IllegalStateException(I18n.translate("error.insufficient_stock", currentStock).getString());
+            }
             throw new IllegalStateException(I18n.translate("error.insufficient_space").getString());
         }
 
+        ItemStack shopItem = shopDatabase.getItemStack(itemId);
+        ItemStack purchaseStack = shopItem.copy();
+        purchaseStack.setCount(maxPurchaseableAmount);
+
         BigDecimal price = shopDatabase.getItemPrice(itemId);
-        long totalCost = scalePrice(price, amount);
+        long totalCost = scalePrice(price, maxPurchaseableAmount);
         
         Collection<EconomyAccount> accounts = CommonEconomy.getAccounts(player, defaultCurrency);
         EconomyAccount account = accounts.isEmpty() ? null : accounts.iterator().next();
@@ -252,11 +249,11 @@ public class Simpleshop implements ModInitializer {
                     sellerAccount.increaseBalance(totalCost);
                 }
             }
-            shopDatabase.removeStockFromItem(itemId, amount);
+            shopDatabase.removeStockFromItem(itemId, maxPurchaseableAmount);
         }
 
         player.getInventory().insertStack(purchaseStack);
-        source.sendFeedback(() -> I18n.translate("item.buy.success", amount, formatCurrency(totalCost)), false);
+        source.sendFeedback(() -> I18n.translate("item.buy.success", maxPurchaseableAmount, formatCurrency(totalCost)), false);
     }
 
     public void sellItemToShopCore(ServerCommandSource source, Integer itemId, int amount) {
@@ -330,5 +327,25 @@ public class Simpleshop implements ModInitializer {
 
     public NotificationManager getNotificationManager() {
         return notificationManager;
+    }
+
+    public int getMaxPurchaseableAmount(ServerPlayerEntity player, Integer itemId, int requestedAmount) {
+        if (shopDatabase.isAdminShopByItemId(itemId)) {
+            ItemStack shopItem = shopDatabase.getItemStack(itemId);
+            ItemStack testStack = shopItem.copy();
+            testStack.setCount(requestedAmount);
+            return PlayerUtils.hasEnoughInventorySpace(player, testStack) ? requestedAmount : 0;
+        }
+
+        int currentStock = shopDatabase.getItemQuantity(itemId);
+        int maxFromStock = Math.min(requestedAmount, currentStock);
+        if (maxFromStock <= 0) {
+            return 0;
+        }
+
+        ItemStack shopItem = shopDatabase.getItemStack(itemId);
+        ItemStack testStack = shopItem.copy();
+        testStack.setCount(maxFromStock);
+        return PlayerUtils.hasEnoughInventorySpace(player, testStack) ? maxFromStock : 0;
     }
 }
