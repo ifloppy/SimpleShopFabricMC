@@ -573,7 +573,8 @@ public class ShopGUI {
     }
 
     public void openItemDetails(ServerPlayerEntity player, String shopName, int itemId) {
-        SimpleGui gui = new SimpleGui(ScreenHandlerType.GENERIC_9X3, player, false);
+        // Change to 6-row GUI for more space
+        SimpleGui gui = new SimpleGui(ScreenHandlerType.GENERIC_9X6, player, false);
 
         try {
             // Get item details
@@ -601,7 +602,7 @@ public class ShopGUI {
                     boolean isCreator = player.getName().getString().equals(creator);
                     boolean isAdmin = Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2);
 
-                    // Display item
+                    // Display item in the center top
                     GuiElementBuilder itemElement = new GuiElementBuilder(itemStack.copy())
                             .addLoreLine(Text.empty())
                             .addLoreLine(I18n.translate("gui.item.quantity", quantity).formatted(Formatting.AQUA))
@@ -613,9 +614,10 @@ public class ShopGUI {
 
                     gui.setSlot(4, itemElement.build());
 
-                    // Quick action buttons
+                    // Client actions (Row 2: slots 18-26)
                     if (isSelling) {
-                        gui.setSlot(11, new GuiElementBuilder(Items.EMERALD)
+                        // Buy button
+                        gui.setSlot(22, new GuiElementBuilder(Items.EMERALD)
                                 .setName(I18n.translate("gui.item.buy").formatted(Formatting.GREEN))
                                 .addLoreLine(I18n.translate("gui.item.buy.desc").formatted(Formatting.GRAY))
                                 .setCallback((index, type, action) -> {
@@ -623,7 +625,8 @@ public class ShopGUI {
                                 })
                                 .build());
                     } else {
-                        gui.setSlot(11, new GuiElementBuilder(Items.GOLD_INGOT)
+                        // Sell button
+                        gui.setSlot(22, new GuiElementBuilder(Items.GOLD_INGOT)
                                 .setName(I18n.translate("gui.item.sell").formatted(Formatting.YELLOW))
                                 .addLoreLine(I18n.translate("gui.item.sell.desc").formatted(Formatting.GRAY))
                                 .setCallback((index, type, action) -> {
@@ -632,10 +635,10 @@ public class ShopGUI {
                                 .build());
                     }
 
-                    // Creator/Admin controls
+                    // Creator/Admin controls (Row 4: slots 36-44)
                     if (isCreator || isAdmin) {
                         // Edit price button
-                        gui.setSlot(13, new GuiElementBuilder(Items.GOLD_NUGGET)
+                        gui.setSlot(38, new GuiElementBuilder(Items.GOLD_NUGGET)
                                 .setName(I18n.translate("gui.item.edit_price").formatted(Formatting.GOLD))
                                 .addLoreLine(I18n.translate("gui.item.edit_price.desc").formatted(Formatting.GRAY))
                                 .setCallback((index, type, action) -> {
@@ -645,7 +648,7 @@ public class ShopGUI {
 
                         // Move item button (only for non-admin shops)
                         if (!rs.getBoolean("isAdminShop")) {
-                            gui.setSlot(14, new GuiElementBuilder(Items.ENDER_PEARL)
+                            gui.setSlot(40, new GuiElementBuilder(Items.ENDER_PEARL)
                                     .setName(I18n.translate("gui.item.move").formatted(Formatting.LIGHT_PURPLE))
                                     .addLoreLine(I18n.translate("gui.item.move.desc").formatted(Formatting.GRAY))
                                     .setCallback((index, type, action) -> {
@@ -655,7 +658,7 @@ public class ShopGUI {
                         }
 
                         // Toggle buy/sell mode
-                        gui.setSlot(15, new GuiElementBuilder(isSelling ? Items.HOPPER : Items.CHEST)
+                        gui.setSlot(42, new GuiElementBuilder(isSelling ? Items.HOPPER : Items.CHEST)
                                 .setName(I18n.translate("gui.item.toggle_mode").formatted(Formatting.AQUA))
                                 .addLoreLine(I18n.translate("gui.item.toggle_mode.current", 
                                         I18n.translate(isSelling ? "gui.item.toggle_mode.selling" : "gui.item.toggle_mode.buying").getString())
@@ -675,7 +678,7 @@ public class ShopGUI {
 
                         // Remove item button (only if quantity is 0)
                         if (quantity == 0) {
-                            gui.setSlot(15, new GuiElementBuilder(Items.BARRIER)
+                            gui.setSlot(44, new GuiElementBuilder(Items.BARRIER)
                                     .setName(I18n.translate("gui.item.remove").formatted(Formatting.RED))
                                     .addLoreLine(I18n.translate("gui.item.remove.desc").formatted(Formatting.GRAY))
                                     .setCallback((index, type, action) -> {
@@ -691,10 +694,10 @@ public class ShopGUI {
                                     .build());
                         }
 
-                        // Stock management buttons for creator
+                        // Stock management buttons for creator (Row 3: slots 27-35)
                         if (isCreator) {
                             // Add stock button
-                            gui.setSlot(12, new GuiElementBuilder(Items.HOPPER)
+                            gui.setSlot(30, new GuiElementBuilder(Items.HOPPER)
                                     .setName(I18n.translate("gui.item.add_stock").formatted(Formatting.GREEN))
                                     .addLoreLine(I18n.translate("gui.item.add_stock.desc").formatted(Formatting.GRAY))
                                     .setCallback((index, type, action) -> {
@@ -703,7 +706,7 @@ public class ShopGUI {
                                     .build());
 
                             // Withdraw stock button
-                            gui.setSlot(13, new GuiElementBuilder(Items.CHEST_MINECART)
+                            gui.setSlot(32, new GuiElementBuilder(Items.CHEST_MINECART)
                                     .setName(I18n.translate("gui.item.withdraw").formatted(Formatting.GOLD))
                                     .addLoreLine(I18n.translate("gui.item.withdraw.desc").formatted(Formatting.GRAY))
                                     .addLoreLine(I18n.translate("item.stock.quantity", quantity).formatted(Formatting.AQUA))
@@ -718,8 +721,8 @@ public class ShopGUI {
                         }
                     }
 
-                    // Back button
-                    gui.setSlot(22, new GuiElementBuilder(Items.ARROW)
+                    // Back button (Bottom row center)
+                    gui.setSlot(49, new GuiElementBuilder(Items.BARRIER)
                             .setName(I18n.translate("gui.shop.back").formatted(Formatting.RED))
                             .setCallback((index, type, action) -> openShopItems(player, shopName, 0))
                             .build());
