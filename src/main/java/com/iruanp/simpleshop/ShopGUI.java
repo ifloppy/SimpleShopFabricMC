@@ -328,6 +328,13 @@ public class ShopGUI {
             }
         }
 
+        // Check shop stock limit
+        if (!database.isAdminShop(shopName)) {
+            int currentStock = database.getItemQuantity(itemId);
+            int remainingSpace = 1024 - currentStock;
+            maxAmount = Math.min(maxAmount, remainingSpace);
+        }
+
         signGui.setLine(2, I18n.translate("dialog.enter_amount.max", maxAmount));
         signGui.open();
     }
@@ -617,20 +624,10 @@ public class ShopGUI {
                                 .build());
                     } else {
                         gui.setSlot(11, new GuiElementBuilder(Items.GOLD_INGOT)
-                                .setName(I18n.translate("gui.item.quick_sell").formatted(Formatting.YELLOW))
-                                .addLoreLine(I18n.translate("gui.item.quick_sell.left").formatted(Formatting.GRAY))
-                                .addLoreLine(I18n.translate("gui.item.quick_sell.right").formatted(Formatting.GRAY))
+                                .setName(I18n.translate("gui.item.sell").formatted(Formatting.YELLOW))
+                                .addLoreLine(I18n.translate("gui.item.sell.desc").formatted(Formatting.GRAY))
                                 .setCallback((index, type, action) -> {
-                                    if (type.isRight) {
-                                        openQuickSellDialog(player, itemId, shopName);
-                                    } else {
-                                        try {
-                                            Simpleshop.getInstance().sellItemToShopCore(player.getCommandSource(), itemId, 1);
-                                            openItemDetails(player, shopName, itemId);
-                                        } catch (IllegalStateException e) {
-                                            player.sendMessage(Text.literal(e.getMessage()).formatted(Formatting.RED), false);
-                                        }
-                                    }
+                                    openQuickSellDialog(player, itemId, shopName);
                                 })
                                 .build());
                     }
