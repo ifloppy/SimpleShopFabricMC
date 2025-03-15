@@ -16,13 +16,16 @@ import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import com.iruanp.simpleshop.service.InventoryService;
+import com.iruanp.simpleshop.service.ShopEntry;
+import com.iruanp.simpleshop.service.ShopItemEntry;
+import com.iruanp.simpleshop.service.ShopService;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.JsonOps;
 import eu.pb4.common.economy.api.CommonEconomy;
@@ -32,13 +35,17 @@ public class ShopGUI {
     private static final int ROWS = 6;
     private static final int SLOTS_PER_PAGE = (ROWS - 1) * 9;
     private ShopDatabase database;
+    private ShopService shopService;
+    private InventoryService inventoryService;
 
-    public ShopGUI(ShopDatabase database) {
+    public ShopGUI(ShopDatabase database, ShopService shopService) {
         this.database = database;
+        this.shopService = shopService;
+        this.inventoryService = new InventoryService();
     }
 
     public void openShopList(ServerPlayerEntity player, int page) {
-        List<ShopEntry> shops = getShops();
+        List<ShopEntry> shops = shopService.getShops();
         int maxPages = (shops.size() + SLOTS_PER_PAGE - 1) / SLOTS_PER_PAGE;
         if (maxPages == 0)
             maxPages = 1;
@@ -146,7 +153,7 @@ public class ShopGUI {
                         description.append(line);
                     }
                 }
-                database.updateShopDescription(shopName, description.toString());
+                shopService.updateShopDescription(shopName, description.toString());
                 openShopList(player, 0);
             }
         };
@@ -156,7 +163,7 @@ public class ShopGUI {
     }
 
     private void openShopItems(ServerPlayerEntity player, String shopName, int page) {
-        List<ShopItemEntry> items = getShopItems(shopName);
+        List<ShopItemEntry> items = shopService.getShopItems(shopName);
         int maxPages = (items.size() + SLOTS_PER_PAGE - 1) / SLOTS_PER_PAGE;
         if (maxPages == 0)
             maxPages = 1;
@@ -189,7 +196,7 @@ public class ShopGUI {
             }
 
             // Add creator info if not an admin shop
-            if (!database.isAdminShop(shopName) && item.creator != null) {
+            if (!shopService.isAdminShop(shopName) && item.creator != null) {
                 String creatorName = PlayerUtils.getPlayerName(UUID.fromString(item.creator));
                 if (creatorName != null) {
                     element.addLoreLine(Text.empty());
@@ -394,20 +401,12 @@ public class ShopGUI {
                     String priceStr = this.getLine(0).getString().trim();
                     BigDecimal price = new BigDecimal(priceStr);
                     if (price.compareTo(BigDecimal.ZERO) > 0) {
-                        JsonElement serializedItem = ItemStack.CODEC
-                                .encode(item, JsonOps.INSTANCE, JsonOps.INSTANCE.empty())
-                                .result()
-                                .orElseThrow();
-                        
                         // Ensure item count is 1
                         ItemStack normalizedItem = item.copy();
                         if (normalizedItem.getCount() > 1) {
                             normalizedItem.setCount(1);
                         }
-                        serializedItem = ItemStack.CODEC
-                                .encode(normalizedItem, JsonOps.INSTANCE, JsonOps.INSTANCE.empty())
-                                .result()
-                                .orElseThrow();
+                        String serializedItem = inventoryService.serializeHeldItem(normalizedItem);
                         
                         int shopId = database.getShopIdByName(shopName);
                         database.addItem(shopId, serializedItem.toString(), 0, isSelling, price, player.getUuidAsString());
@@ -526,51 +525,7 @@ public class ShopGUI {
         }
     }
 
-    private List<ShopItemEntry> getShopItems(String shopName) {
-        List<ShopItemEntry> items = new ArrayList<>();
-        String sql = "SELECT i.id, i.nbtData, i.quantity, i.isSelling, i.price, i.creator FROM items i " +
-                "JOIN shops s ON i.shopId = s.id WHERE s.name = ?";
 
-        try (PreparedStatement pstmt = database.getConnection().prepareStatement(sql)) {
-            pstmt.setString(1, shopName);
-            ResultSet rs = pstmt.executeQuery();
-
-            while (rs.next()) {
-                ItemStack itemStack = database.getItemStack(rs.getInt("id"));
-                if (itemStack != null) {
-                    items.add(new ShopItemEntry(
-                            rs.getInt("id"),
-                            itemStack,
-                            rs.getInt("quantity"),
-                            rs.getBoolean("isSelling"),
-                            rs.getBigDecimal("price"),
-                            rs.getString("creator")));
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return items;
-    }
-
-    private List<ShopEntry> getShops() {
-        List<ShopEntry> shops = new ArrayList<>();
-        String sql = "SELECT name, description, isAdminShop, item FROM shops ORDER BY name";
-
-        try (PreparedStatement pstmt = database.getConnection().prepareStatement(sql)) {
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                shops.add(new ShopEntry(
-                        rs.getString("name"),
-                        rs.getString("description"),
-                        rs.getBoolean("isAdminShop"),
-                        rs.getString("item")));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return shops;
-    }
 
     public void openItemDetails(ServerPlayerEntity player, String shopName, int itemId) {
         // Change to 6-row GUI for more space
@@ -832,7 +787,7 @@ public class ShopGUI {
                                 .encode(heldItem, JsonOps.INSTANCE, JsonOps.INSTANCE.empty())
                                 .result()
                                 .orElseThrow();
-                        database.updateShopIcon(shopName, serializedItem.toString());
+                        shopService.updateShopIcon(shopName, serializedItem.toString());
                         player.sendMessage(I18n.translate("gui.shop.icon_updated").formatted(Formatting.GREEN), false);
                         openShopList(player, 0);
                     } else {
@@ -842,7 +797,7 @@ public class ShopGUI {
                 .build());
 
         // Add delete button for admins if shop is empty
-        if (Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2) && database.isShopEmpty(shopName)) {
+        if (Permissions.check(player.getCommandSource(), "Simpleshop.Admin", 2) && shopService.isShopEmpty(shopName)) {
             gui.setSlot(16, new GuiElementBuilder(Items.BARRIER)
                     .setName(I18n.translate("gui.shop.delete").formatted(Formatting.RED))
                     .addLoreLine(I18n.translate("gui.shop.delete.desc").formatted(Formatting.GRAY))
@@ -851,7 +806,7 @@ public class ShopGUI {
                                 I18n.translate("dialog.delete_shop.title").getString(),
                                 I18n.translate("dialog.delete_shop.message").getString(),
                                 () -> {
-                                    database.deleteShop(shopName);
+                                    shopService.deleteShop(shopName);
                                     player.sendMessage(I18n.translate("shop.delete.success").formatted(Formatting.GREEN), false);
                                     openShopList(player, 0);
                                 },
@@ -875,8 +830,8 @@ public class ShopGUI {
             public void onClose() {
                 String newName = this.getLine(0).getString().trim();
                 if (!newName.isEmpty() && !newName.equals(oldShopName)) {
-                    if (!database.shopExists(newName)) {
-                        database.updateShopName(oldShopName, newName);
+                    if (!shopService.shopExists(newName)) {
+                        shopService.updateShopName(oldShopName, newName);
                         player.sendMessage(I18n.translate("shop.name.updated").formatted(Formatting.GREEN), false);
                         openShopList(player, 0);
                     } else {
@@ -906,21 +861,20 @@ public class ShopGUI {
             public void onClose() {
                 String shopName = this.getLine(0).getString().trim();
                 if (!shopName.isEmpty()) {
-                    if (!database.shopExists(shopName)) {
-                        JsonElement serializedItem = ItemStack.CODEC
-                                .encode(heldItem, JsonOps.INSTANCE, JsonOps.INSTANCE.empty())
-                                .result()
-                                .orElseThrow();
-                        database.addShop(shopName, serializedItem.toString(), "", isAdminShop);
-                        player.sendMessage(I18n.translate(isAdminShop ? "shop.create.admin.success" : "shop.create.success", shopName)
-                                .formatted(Formatting.GREEN), false);
-                        openShopList(player, 0);
+                    if (!shopService.shopExists(shopName)) {
+                        String serializedItem = inventoryService.serializeHeldItem(player);
+                        if (serializedItem != null) {
+                            shopService.createShop(shopName, serializedItem, "", isAdminShop);
+                            player.sendMessage(I18n.translate(isAdminShop ? "shop.create.admin.success" : "shop.create.success", shopName)
+                                    .formatted(Formatting.GREEN), false);
+                            openShopList(player, 0);
+                        } else {
+                            player.sendMessage(I18n.translate("shop.create.error").formatted(Formatting.RED), false);
+                        }
                     } else {
                         player.sendMessage(I18n.translate("shop.create.exists", shopName).formatted(Formatting.RED), false);
                         openShopList(player, 0);
                     }
-                } else {
-                    openShopList(player, 0);
                 }
             }
         };
@@ -930,41 +884,10 @@ public class ShopGUI {
         signGui.open();
     }
 
-    private static class ShopEntry {
-        String name;
-        String description;
-        boolean isAdminShop;
-        String item;
-
-        ShopEntry(String name, String description, boolean isAdminShop, String item) {
-            this.name = name;
-            this.description = description;
-            this.isAdminShop = isAdminShop;
-            this.item = item;
-        }
-    }
-
-    private static class ShopItemEntry {
-        int id;
-        ItemStack itemStack;
-        int quantity;
-        boolean isSelling;
-        BigDecimal price;
-        String creator;
-
-        ShopItemEntry(int id, ItemStack itemStack, int quantity, boolean isSelling, BigDecimal price, String creator) {
-            this.id = id;
-            this.itemStack = itemStack;
-            this.quantity = quantity;
-            this.isSelling = isSelling;
-            this.price = price;
-            this.creator = creator;
-        }
-    }
 
     private void openMoveItemDialog(ServerPlayerEntity player, int itemId, String currentShopName) {
         // Get list of user shops excluding current shop
-        List<ShopEntry> userShops = getUserShops(currentShopName);
+        List<ShopEntry> userShops = shopService.getUserShops(currentShopName);
         if (userShops.isEmpty()) {
             player.sendMessage(I18n.translate("error.no_other_shops").formatted(Formatting.RED), false);
             return;
@@ -994,7 +917,8 @@ public class ShopGUI {
             }
 
             element.setCallback((index, type, action) -> {
-                moveItemToShop(player, itemId, currentShopName, shop.name);
+                shopService.moveItemToShop(player, itemId, currentShopName, shop.name);
+openShopItems(player, shop.name, 0);
             });
 
             gui.setSlot(i, element.build());
@@ -1010,54 +934,7 @@ public class ShopGUI {
         gui.open();
     }
 
-    private List<ShopEntry> getUserShops(String excludeShopName) {
-        List<ShopEntry> shops = new ArrayList<>();
-        String sql = "SELECT name, description, isAdminShop, item FROM shops WHERE isAdminShop = 0 AND name != ? ORDER BY name";
 
-        try (PreparedStatement pstmt = database.getConnection().prepareStatement(sql)) {
-            pstmt.setString(1, excludeShopName);
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                shops.add(new ShopEntry(
-                        rs.getString("name"),
-                        rs.getString("description"),
-                        rs.getBoolean("isAdminShop"),
-                        rs.getString("item")));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return shops;
-    }
 
-    private void moveItemToShop(ServerPlayerEntity player, int itemId, String fromShopName, String toShopName) {
-        try {
-            // Get target shop ID
-            int targetShopId = database.getShopIdByName(toShopName);
-            
-            // Update item's shop ID
-            String sql = "UPDATE items SET shopId = ? WHERE id = ?";
-            try (PreparedStatement pstmt = database.getConnection().prepareStatement(sql)) {
-                pstmt.setInt(1, targetShopId);
-                pstmt.setInt(2, itemId);
-                pstmt.executeUpdate();
-            }
 
-            player.sendMessage(I18n.translate("item.move.success", fromShopName, toShopName).formatted(Formatting.GREEN), false);
-
-            // Notify item owner about the move
-            String creatorName = PlayerUtils.getPlayerName(UUID.fromString(database.getItemCreator(itemId)));
-            if (creatorName != null) {
-                String notificationMsg = I18n.translate("notification.item.moved", 
-                    player.getName().getString(), fromShopName, toShopName).getString();
-                Simpleshop.getInstance().getNotificationManager().notifyPlayer(creatorName, notificationMsg);
-            }
-
-            openShopItems(player, toShopName, 0);
-        } catch (SQLException e) {
-            e.printStackTrace();
-            player.sendMessage(I18n.translate("error.move_failed").formatted(Formatting.RED), false);
-            openItemDetails(player, fromShopName, itemId);
-        }
-    }
 }

@@ -4,7 +4,6 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
@@ -13,11 +12,11 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.world.GameRules;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonElement;
+import com.iruanp.simpleshop.service.ShopService;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.serialization.JsonOps;
@@ -42,6 +41,7 @@ public class Simpleshop implements ModInitializer {
     private EconomyProvider economyProvider;
     public EconomyCurrency defaultCurrency;
     private ShopGUI shopGUI;
+    private ShopService shopService;
 
     public MinecraftServer serverInstance;
 
@@ -80,7 +80,8 @@ public class Simpleshop implements ModInitializer {
         I18n.init();
         
         shopDatabase = new ShopDatabase();
-        shopGUI = new ShopGUI(shopDatabase);
+        shopService = new ShopService(shopDatabase);
+        shopGUI = new ShopGUI(shopDatabase, shopService);
         
         // Initialize NotificationManager after database is ready
         notificationManager = new NotificationManager(shopDatabase, server);

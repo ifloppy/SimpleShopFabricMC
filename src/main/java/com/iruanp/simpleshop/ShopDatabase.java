@@ -13,10 +13,12 @@ import java.util.List;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.mojang.datafixers.util.Pair;
+import com.iruanp.simpleshop.service.ShopEntry;
+import com.iruanp.simpleshop.service.ShopItemEntry;
 
 import net.minecraft.item.ItemStack;
 
-class ShopDatabase {
+public class ShopDatabase {
     private static String DB_URL;
     private Connection connection;
 
@@ -115,6 +117,25 @@ class ShopDatabase {
         }
     }
 
+    public List<ShopEntry> getShops() {
+        List<ShopEntry> shops = new ArrayList<>();
+        String sql = "SELECT name, description, isAdminShop, item FROM shops ORDER BY name";
+
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                shops.add(new ShopEntry(
+                        rs.getString("name"),
+                        rs.getString("description"),
+                        rs.getBoolean("isAdminShop"),
+                        rs.getString("item")));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return shops;
+    }
+
     public void addShop(String name, String item, String description, boolean isAdminShop) {
         String sql = "INSERT INTO shops(name, item, description, isAdminShop) VALUES(?, ?, ?, ?)";
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
@@ -182,6 +203,38 @@ class ShopDatabase {
             e.printStackTrace();
         }
         return null;
+    }
+
+    public List<ShopItemEntry> getShopItems(String shopName) {
+        List<ShopItemEntry> items = new ArrayList<>();
+        String sql = "SELECT i.id, i.nbtData, i.quantity, i.isSelling, i.price, i.creator " +
+                    "FROM items i " +
+                    "JOIN shops s ON i.shopId = s.id " +
+                    "WHERE s.name = ?";
+
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, shopName);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                String nbtData = rs.getString("nbtData");
+                ItemStack itemStack = ItemStack.CODEC.decode(Simpleshop.jsonops, JsonParser.parseString(nbtData))
+                    .result()
+                    .map(Pair::getFirst)
+                    .orElse(ItemStack.EMPTY);
+                items.add(new ShopItemEntry(
+                    rs.getInt("id"),
+                    itemStack,
+                    rs.getBigDecimal("price"),
+                    rs.getInt("quantity"),
+                    rs.getBoolean("isSelling"),
+                    rs.getString("creator")
+                ));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return items;
     }
 
     public boolean itemExists(Integer itemId) {
