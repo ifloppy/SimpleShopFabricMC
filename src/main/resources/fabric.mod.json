@@ -25,6 +25,6 @@
 		"java": ">=21",
 		"fabric-api": "*",
 		"fabric-permissions-api-v0": "*",
-		"common-economy-api": "*"
+		"mcuniversaleconomy": "*"
 	}
 }

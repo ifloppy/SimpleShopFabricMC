@@ -16,7 +16,6 @@ import java.math.RoundingMode;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,8 +27,8 @@ import com.iruanp.simpleshop.service.ShopItemEntry;
 import com.iruanp.simpleshop.service.ShopService;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.JsonOps;
-import eu.pb4.common.economy.api.CommonEconomy;
-import eu.pb4.common.economy.api.EconomyAccount;
+import com.iruanp.mcuniversaleconomy.api.UniversalEconomyAPI;
+import com.iruanp.mcuniversaleconomy.api.UniversalEconomyAPIImpl;
 
 public class ShopGUI {
     private static final int ROWS = 6;
@@ -37,11 +36,13 @@ public class ShopGUI {
     private ShopDatabase database;
     private ShopService shopService;
     private InventoryService inventoryService;
+    private final UniversalEconomyAPI economyAPI;
 
     public ShopGUI(ShopDatabase database, ShopService shopService) {
         this.database = database;
         this.shopService = shopService;
         this.inventoryService = new InventoryService();
+        this.economyAPI = UniversalEconomyAPIImpl.getInstance();
     }
 
     public void openShopList(ServerPlayerEntity player, int page) {
@@ -186,12 +187,12 @@ public class ShopGUI {
             element.addLoreLine(Text.empty());
 
             if (item.isSelling) {
-                element.addLoreLine(I18n.translate("item.price.buy", Simpleshop.getInstance().formatPrice(item.price))
+                element.addLoreLine(I18n.translate("item.price.buy", economyAPI.formatAmount(item.price))
                         .formatted(Formatting.GREEN));
                 element.addLoreLine(I18n.translate("item.stock.quantity", item.quantity)
                         .formatted(Formatting.AQUA));
             } else {
-                element.addLoreLine(I18n.translate("item.price.sell", Simpleshop.getInstance().formatPrice(item.price))
+                element.addLoreLine(I18n.translate("item.price.sell", economyAPI.formatAmount(item.price))
                         .formatted(Formatting.YELLOW));
             }
 
@@ -282,9 +283,7 @@ public class ShopGUI {
 
         // Calculate max amount player can buy based on stock, inventory space, and money
         BigDecimal price = database.getItemPrice(itemId);
-        Collection<EconomyAccount> accounts = CommonEconomy.getAccounts(player, Simpleshop.getInstance().defaultCurrency);
-        EconomyAccount account = accounts.isEmpty() ? null : accounts.iterator().next();
-        BigDecimal balance = account != null ? BigDecimal.valueOf(account.balance()).divide(BigDecimal.valueOf(1000), RoundingMode.FLOOR) : BigDecimal.ZERO;
+        BigDecimal balance = economyAPI.getBalance(player.getUuid()).join();
         int maxAffordable = price.compareTo(BigDecimal.ZERO) > 0 ? balance.divide(price, RoundingMode.FLOOR).intValue() : Integer.MAX_VALUE;
         
         // Get max purchaseable amount considering inventory space and stock
@@ -562,7 +561,7 @@ public class ShopGUI {
                             .addLoreLine(Text.empty())
                             .addLoreLine(I18n.translate("gui.item.quantity", quantity).formatted(Formatting.AQUA))
                             .addLoreLine(I18n.translate(isSelling ? "item.price.buy" : "item.price.sell", 
-                                    Simpleshop.getInstance().formatPrice(price))
+                                    economyAPI.formatAmount(price))
                                     .formatted(isSelling ? Formatting.GREEN : Formatting.YELLOW))
                             .addLoreLine(Text.empty())
                             .addLoreLine(I18n.translate("gui.item.creator", creator).formatted(Formatting.GRAY));

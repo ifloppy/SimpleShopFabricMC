@@ -1,7 +1,6 @@
 package com.iruanp.simpleshop;
 
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import net.minecraft.text.Text;
 import net.minecraft.text.MutableText;

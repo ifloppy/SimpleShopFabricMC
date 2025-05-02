@@ -16,21 +16,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.JsonElement;
+import com.iruanp.mcuniversaleconomy.api.UniversalEconomyAPI;
+import com.iruanp.mcuniversaleconomy.api.UniversalEconomyAPIImpl;
 import com.iruanp.simpleshop.service.ShopService;
-import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.serialization.JsonOps;
 
 import me.lucko.fabric.api.permissions.v0.Permissions;
-import eu.pb4.common.economy.api.CommonEconomy;
-import eu.pb4.common.economy.api.EconomyAccount;
-import eu.pb4.common.economy.api.EconomyProvider;
-import eu.pb4.common.economy.api.EconomyTransaction;
-import eu.pb4.common.economy.api.EconomyCurrency;
-
 import java.math.BigDecimal;
 import java.util.UUID;
-import java.util.Collection;
 
 public class Simpleshop implements ModInitializer {
     public static final String MOD_ID = "simpleshop";
@@ -38,8 +32,7 @@ public class Simpleshop implements ModInitializer {
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
     public static String savePath;
     public static ShopDatabase shopDatabase;
-    private EconomyProvider economyProvider;
-    public EconomyCurrency defaultCurrency;
+    private UniversalEconomyAPI economyAPI;
     private ShopGUI shopGUI;
     private ShopService shopService;
 
@@ -86,19 +79,7 @@ public class Simpleshop implements ModInitializer {
         // Initialize NotificationManager after database is ready
         notificationManager = new NotificationManager(shopDatabase, server);
         
-        var providers = CommonEconomy.providers();
-        if (providers.isEmpty()) {
-            LOGGER.error(I18n.translate("error.economy_provider").getString());
-            return;
-        }
-        
-        economyProvider = providers.iterator().next();
-        var currencies = economyProvider.getCurrencies(server);
-        if (currencies.isEmpty()) {
-            LOGGER.error(I18n.translate("error.currency").getString());
-            return;
-        }
-        defaultCurrency = currencies.iterator().next();
+        this.economyAPI = UniversalEconomyAPIImpl.getInstance();
     }
 
     private void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher,
@@ -133,19 +114,6 @@ public class Simpleshop implements ModInitializer {
         return total;
     }
 
-    private String formatCurrency(long scaledValue) {
-        return defaultCurrency.formatValue(scaledValue, true);
-    }
-
-    public String formatPrice(BigDecimal price) {
-        String priceStr = String.format("%.2f", price);
-        return defaultCurrency.formatValue(defaultCurrency.parseValue(priceStr), true);
-    }
-
-    private long scalePrice(BigDecimal price, int amount) {
-        String priceStr = String.format("%.2f", price.multiply(BigDecimal.valueOf(amount)));
-        return defaultCurrency.parseValue(priceStr);
-    }
 
     // Core methods used by GUI
     public void stockItemInShopCore(ServerCommandSource source, Integer itemId, int amount) {
@@ -229,32 +197,25 @@ public class Simpleshop implements ModInitializer {
         purchaseStack.setCount(maxPurchaseableAmount);
 
         BigDecimal price = shopDatabase.getItemPrice(itemId);
-        long totalCost = scalePrice(price, maxPurchaseableAmount);
+        BigDecimal totalCost = price.multiply(BigDecimal.valueOf(maxPurchaseableAmount));
         
-        Collection<EconomyAccount> accounts = CommonEconomy.getAccounts(player, defaultCurrency);
-        EconomyAccount account = accounts.isEmpty() ? null : accounts.iterator().next();
-        if (account == null) {
+        if (economyAPI.getBalance(player.getUuid()).join().compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalStateException(I18n.translate("error.no_account").getString());
         }
-
-        EconomyTransaction result = account.decreaseBalance(totalCost);
-        if (!result.isSuccessful()) {
-            throw new IllegalStateException(I18n.translate("error.transaction_failed", result.message().getString()).getString());
+        
+        if (!economyAPI.withdrawPlayer(player.getUuid(), totalCost).join()) {
+            throw new IllegalStateException(I18n.translate("error.transaction_failed").getString());
         }
 
         if (!shopDatabase.isAdminShopByItemId(itemId)) {
             if (!itemCreator.isEmpty()) {
-                Collection<EconomyAccount> sellerAccounts = CommonEconomy.getAccounts(serverInstance, new GameProfile(UUID.fromString(itemCreator), ""), defaultCurrency);
-                EconomyAccount sellerAccount = sellerAccounts.isEmpty() ? null : sellerAccounts.iterator().next();
-                if (sellerAccount != null) {
-                    sellerAccount.increaseBalance(totalCost);
-                }
+                economyAPI.depositPlayer(UUID.fromString(itemCreator), totalCost);
             }
             shopDatabase.removeStockFromItem(itemId, maxPurchaseableAmount);
         }
 
         player.getInventory().insertStack(purchaseStack);
-        source.sendFeedback(() -> I18n.translate("item.buy.success", maxPurchaseableAmount, formatCurrency(totalCost)), false);
+        source.sendFeedback(() -> I18n.translate("item.buy.success", maxPurchaseableAmount, economyAPI.formatAmount(totalCost)), false);
     }
 
     public void sellItemToShopCore(ServerCommandSource source, Integer itemId, int amount) {
@@ -290,32 +251,26 @@ public class Simpleshop implements ModInitializer {
         }
 
         BigDecimal price = shopDatabase.getItemPrice(itemId);
-        long totalCost = scalePrice(price, amount);
+        BigDecimal totalCost = price.multiply(BigDecimal.valueOf(amount));
 
         if (!shopDatabase.isAdminShopByItemId(itemId)) {
             if (!itemCreator.isEmpty()) {
-                Collection<EconomyAccount> creatorAccounts = CommonEconomy.getAccounts(serverInstance, new GameProfile(UUID.fromString(itemCreator), ""), defaultCurrency);
-                EconomyAccount creatorAccount = creatorAccounts.isEmpty() ? null : creatorAccounts.iterator().next();
-                if (creatorAccount == null) {
+                if (economyAPI.getBalance(UUID.fromString(itemCreator)).join().compareTo(BigDecimal.ZERO) < 0) {
                     throw new IllegalStateException(I18n.translate("error.no_account").getString());
                 }
-
-                EconomyTransaction creatorResult = creatorAccount.decreaseBalance(totalCost);
-                if (!creatorResult.isSuccessful()) {
-                    throw new IllegalStateException(I18n.translate("error.transaction_failed", creatorResult.message().getString()).getString());
+                
+                if (!economyAPI.withdrawPlayer(UUID.fromString(itemCreator), totalCost).join()) {
+                    throw new IllegalStateException(I18n.translate("error.transaction_failed").getString());
                 }
             }
         }
 
-        Collection<EconomyAccount> sellerAccounts = CommonEconomy.getAccounts(player, defaultCurrency);
-        EconomyAccount sellerAccount = sellerAccounts.isEmpty() ? null : sellerAccounts.iterator().next();
-        if (sellerAccount == null) {
+        if (economyAPI.getBalance(player.getUuid()).join().compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalStateException(I18n.translate("error.no_account").getString());
         }
-
-        EconomyTransaction sellerResult = sellerAccount.increaseBalance(totalCost);
-        if (!sellerResult.isSuccessful()) {
-            throw new IllegalStateException(I18n.translate("error.transaction_failed", sellerResult.message().getString()).getString());
+        
+        if (!economyAPI.depositPlayer(player.getUuid(), totalCost).join()) {
+            throw new IllegalStateException(I18n.translate("error.transaction_failed").getString());
         }
 
         playerStack.decrement(amount);
@@ -323,7 +278,7 @@ public class Simpleshop implements ModInitializer {
             shopDatabase.addStockToItem(itemId, amount);
         }
 
-        source.sendFeedback(() -> I18n.translate("item.sell.success", amount, formatCurrency(totalCost)), false);
+        source.sendFeedback(() -> I18n.translate("item.sell.success", amount, economyAPI.formatAmount(totalCost)), false);
     }
 
     public NotificationManager getNotificationManager() {

@@ -19,6 +19,9 @@ repositories {
 
 	maven { url 'https://maven.nucleoid.xyz' }
 	maven { url "https://repo.papermc.io/repository/maven-public/" }
+    maven { url 'https://jitpack.io' }
+    
+
 }
 
 loom {
@@ -50,7 +53,7 @@ dependencies {
 
 	implementation 'org.xerial:sqlite-jdbc:3.47.2.0'
 
-	modImplementation include("eu.pb4:common-economy-api:1.1.1")
+	modImplementation include("com.github.ifloppy:MCUniversalEconomy:266dee234f")
 }
 
 processResources {
